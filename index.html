@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Leaflet + Networks GeoJSON (unique colors)</title>
+  <title>Leaflet + Networks (labels, simple basemap, 20 colors)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link
     rel="stylesheet"
@@ -21,15 +21,22 @@
       gap: 8px;
       margin-top: 8px;
     }
-    .gallery a {
-      display:block; border-radius:8px; overflow:hidden;
-      box-shadow: 0 1px 4px rgba(0,0,0,.12);
-    }
-    .gallery img {
-      display:block; width:100%; height:100%;
-      object-fit: cover; aspect-ratio: 4 / 3;
-    }
+    .gallery a { display:block; border-radius:8px; overflow:hidden; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+    .gallery img { display:block; width:100%; height:100%; object-fit: cover; aspect-ratio: 4 / 3; }
     hr { border:0; border-top:1px solid #e9ecef; margin:8px 0; }
+
+    /* Polygon labels (permanent tooltips) */
+    .poly-label {
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      color: #1f2937;             /* dark gray for readability */
+      font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      text-align: center;
+      white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(255,255,255,.8), 0 0 2px rgba(255,255,255,.9);
+      pointer-events: none;       /* clicks go to polygon underneath */
+    }
   </style>
 </head>
 <body>
@@ -41,34 +48,37 @@
     crossorigin=""
   ></script>
   <script>
+    // Map + simple basemap (CartoDB Positron)
     const map = L.map('map', { center: [37.8, -122.3], zoom: 9, preferCanvas: true });
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 20,
-      attribution: '&copy; OpenStreetMap contributors'
+      subdomains: 'abcd',
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors ' +
+        '&copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(map);
 
-    // Define a palette of distinct colors
-    const palette = [
-      '#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00',
-      '#ffff33','#a65628','#f781bf','#999999'
+    // 20 distinct colors (Tableau/D3-like mix)
+    const palette20 = [
+      '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
+      '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf',
+      '#393b79','#637939','#8c6d31','#843c39','#7b4173',
+      '#3182bd','#31a354','#756bb1','#636363','#e6550d'
     ];
     let featureIndex = 0;
 
-    function style(feature) {
-      // cycle through palette
-      const color = palette[featureIndex % palette.length];
+    function style() {
+      const color = palette20[featureIndex % palette20.length];
       featureIndex++;
       return {
-        color: '#333',        // border
+        color: '#333',       // border
         weight: 1.5,
         fillColor: color,
         fillOpacity: 0.5
       };
     }
 
-    function highlight(e) {
-      e.target.setStyle({ weight: 3, color: '#000', fillOpacity: 0.7 });
-    }
+    function highlight(e) { e.target.setStyle({ weight: 3, color: '#000', fillOpacity: 0.7 }); }
     function resetHighlight(e) { geojson.resetStyle(e.target); }
 
     function allPhotos(props = {}) {
@@ -76,6 +86,7 @@
         .filter(url => typeof url === 'string' && url.trim().length > 0);
     }
 
+    // Tooltip (hover-only) stays minimal; labels are handled separately
     function tooltipHtml(props = {}) {
       return `
         <div class="tip">
@@ -84,6 +95,7 @@
         </div>`;
     }
 
+    // Popup WITHOUT id/photo_count; includes photo gallery if present
     function popupHtml(props = {}) {
       const photos = allPhotos(props);
       const gallery = photos.length
@@ -99,26 +111,45 @@
         <div class="tip">
           <div><strong>${props.name ?? 'Unnamed'}</strong></div>
           <div><span class="label">Leaders:</span> ${props.leaders ?? '—'}</div>
-          <hr/>
-          <div><span class="label">ID:</span> ${props.id ?? '—'}</div>
-          <div><span class="label">Photos:</span> ${props.photo_count ?? 0}</div>
-          ${gallery}
+          ${gallery ? '<hr/>' + gallery : ''}
         </div>`;
     }
 
+    // Add permanent name label at polygon center
+    function addNameLabel(layer, name) {
+      try {
+        const center = layer.getBounds().getCenter();
+        layer.bindTooltip(name || 'Unnamed', {
+          permanent: true,
+          direction: 'center',
+          className: 'poly-label',
+          opacity: 1
+        }).openTooltip(center);
+      } catch (_) {
+        /* fallback: ignore if bounds invalid */
+      }
+    }
+
     function onEachFeature(feature, layer) {
+      // Hover tooltip
       layer.bindTooltip(tooltipHtml(feature.properties), { sticky: true, opacity: 0.95 });
+      // Popup
       layer.on({
         mouseover: highlight,
         mouseout: resetHighlight,
-        click: () => layer.bindPopup(popupHtml(feature.properties), { maxWidth: 420 }).openPopup()
+        click: () => layer.bindPopup(popupHtml(feature.properties), { maxWidth: 460 }).openPopup()
       });
+      // Permanent label
+      addNameLabel(layer, feature.properties?.name);
     }
 
     let geojson;
 
     fetch('https://tbc-networks.onrender.com/networks.geojson', { cache: 'no-cache' })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then(data => {
         featureIndex = 0; // reset before styling
         geojson = L.geoJSON(data, { style, onEachFeature }).addTo(map);
