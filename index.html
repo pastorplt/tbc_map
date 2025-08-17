@@ -14,17 +14,17 @@
     html, body, #map { height: 100%; margin: 0; }
     .leaflet-interactive { cursor: pointer; }
 
-    /* Shared tip styles */
+    /* Shared card/tip styles (used by both hover tooltip and popup) */
     .tip { font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     .tip .label { color:#666; }
     .tip-name {
-      font-size: 15px;      /* larger */
+      font-size: 15px;      /* larger name */
       font-weight: 600;
       margin-bottom: 2px;
       color: #111;
     }
 
-    /* Permanent polygon labels (names) */
+    /* Permanent polygon labels (names split across lines) */
     .poly-label {
       background: transparent;
       border: 0;
@@ -32,14 +32,23 @@
       color: #1f2937; /* dark gray */
       font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       text-align: center;
-      white-space: nowrap;
+      white-space: nowrap; /* each word is on its own line via <br>, so no wrap within a word */
       text-shadow: 0 1px 2px rgba(255,255,255,.85), 0 0 2px rgba(255,255,255,.9);
       pointer-events: none; /* clicks pass through to polygon */
     }
 
-    /* Hover tooltip */
-    .hover-tip {
-      /* default Leaflet tooltip styling is fine; keep subtle */
+    /* Make the hover tooltip visually match a small popup "card" */
+    .leaflet-tooltip.hover-tip {
+      background: #fff;
+      color: #111;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.12);
+      padding: 8px 10px;
+    }
+    /* Hide the default tooltip arrow "notch" for a cleaner card look */
+    .leaflet-tooltip.hover-tip:before {
+      display: none;
     }
 
     /* Popup photo gallery */
@@ -79,7 +88,7 @@
         '&copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(map);
 
-    // 2) 20 distinct colors; pick deterministically per feature for stability
+    // 2) 20 distinct colors; choose deterministically per feature for stability
     const palette20 = [
       '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
       '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf',
@@ -92,13 +101,11 @@
       for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
       return Math.abs(h) % m;
     }
-
     function colorForFeature(feature) {
       const props = feature.properties || {};
       const key = String(props.id || props.name || JSON.stringify(feature.geometry) || Math.random());
       return palette20[hashIndex(key, palette20.length)];
     }
-
     function style(feature) {
       return {
         color: '#333',       // border
@@ -107,18 +114,17 @@
         fillOpacity: 0.5
       };
     }
-
     function highlight(e) { e.target.setStyle({ weight: 3, color: '#000', fillOpacity: 0.7 }); }
     function resetHighlight(e) { geojson.resetStyle(e.target); }
 
-    // 3) Tooltip + popup builders
+    // 3) HTML builders (shared card look)
     function allPhotos(props = {}) {
       return [props.photo1, props.photo2, props.photo3, props.photo4, props.photo5, props.photo6]
         .filter(url => typeof url === 'string' && url.trim().length > 0);
     }
 
-    // Hover tooltip content (larger name + leaders)
-    function hoverTooltipHtml(props = {}) {
+    // Hover tooltip: same "card" look as popup, but without photos for speed
+    function hoverCardHtml(props = {}) {
       return `
         <div class="tip">
           <div class="tip-name">${props.name ?? 'Unnamed'}</div>
@@ -126,8 +132,8 @@
         </div>`;
     }
 
-    // Popup: name (larger) + leaders + photo gallery (no id/photo_count)
-    function popupHtml(props = {}) {
+    // Click popup: same card + photo gallery
+    function popupCardHtml(props = {}) {
       const photos = allPhotos(props);
       const gallery = photos.length
         ? `<div class="gallery">
@@ -146,7 +152,13 @@
         </div>`;
     }
 
-    // Permanent label options (name)
+    // Permanent label: break the name into words and stack them
+    function multilineName(name) {
+      if (!name || typeof name !== 'string') return 'Unnamed';
+      // Split on whitespace, filter empty, join with <br> to force one word per line
+      const words = name.trim().split(/\s+/).filter(Boolean);
+      return words.join('<br>');
+    }
     const labelOptions = {
       permanent: true,
       direction: 'center',
@@ -156,43 +168,36 @@
 
     // 4) Per-feature interactions
     function onEachFeature(feature, layer) {
-      // Permanent name label at polygon center
+      // Permanent stacked-name label
       try {
-        layer.bindTooltip(feature.properties?.name || 'Unnamed', labelOptions);
-      } catch (e) {
-        /* ignore if bounds/centroid invalid */
-      }
+        layer.bindTooltip(multilineName(feature.properties?.name), labelOptions);
+      } catch (e) { /* ignore if bounds/centroid invalid */ }
 
-      // Hover tooltip implemented as a separate floating tooltip
+      // Hover tooltip that matches popup look (minus photos)
       layer.on('mouseover', (e) => {
         highlight(e);
         const tip = L.tooltip({
-          className: 'tip hover-tip',
+          className: 'hover-tip',
           direction: 'top',
           opacity: 0.95,
           offset: [0, -8]
         })
-          .setContent(hoverTooltipHtml(feature.properties))
+          .setContent(hoverCardHtml(feature.properties))
           .setLatLng(e.latlng);
         layer._hoverTip = tip;
         tip.addTo(map);
       });
-
       layer.on('mousemove', (e) => {
         if (layer._hoverTip) layer._hoverTip.setLatLng(e.latlng);
       });
-
       layer.on('mouseout', (e) => {
         resetHighlight(e);
-        if (layer._hoverTip) {
-          map.removeLayer(layer._hoverTip);
-          layer._hoverTip = null;
-        }
+        if (layer._hoverTip) { map.removeLayer(layer._hoverTip); layer._hoverTip = null; }
       });
 
-      // Click popup
+      // Click popup (same card look, includes gallery)
       layer.on('click', () => {
-        layer.bindPopup(popupHtml(feature.properties), { maxWidth: 480 }).openPopup();
+        layer.bindPopup(popupCardHtml(feature.properties), { maxWidth: 480 }).openPopup();
       });
     }
 
