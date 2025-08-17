@@ -75,47 +75,17 @@
     crossorigin=""
   ></script>
   <script>
-    // 1) Map
+    // 1) Map with Esri World Gray Canvas basemap ONLY
     const map = L.map('map', { center: [37.8, -122.3], zoom: 9, preferCanvas: true });
-
-    // 2) Basemap layers
-    const cartoPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20, subdomains: 'abcd',
-      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-    });
-
-    const cartoDarkMatter = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20, subdomains: 'abcd',
-      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-    });
-
-    const osmStandard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 20,
-      attribution: '&copy; OpenStreetMap contributors'
-    });
-
-    const esriGray = L.tileLayer(
+    L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
       {
         maxZoom: 20,
         attribution: 'Tiles &copy; Esri — Esri, HERE, Garmin, FAO, USGS, NGA, EPA, NPS'
       }
-    );
+    ).addTo(map);
 
-    // Add default basemap
-    cartoPositron.addTo(map);
-
-    // 3) Layer control (basemaps + overlays)
-    const baseMaps = {
-      'CartoDB Positron': cartoPositron,
-      'CartoDB Dark Matter': cartoDarkMatter,
-      'OpenStreetMap': osmStandard,
-      'Esri World Gray Canvas': esriGray
-    };
-    const overlays = {}; // we'll add "Networks" after we create it
-    const layerControl = L.control.layers(baseMaps, overlays, { position: 'topright', collapsed: false }).addTo(map);
-
-    // 4) Polygons styling (20 distinct colors, deterministic per feature)
+    // 2) 20 distinct colors; choose deterministically per feature for stability
     const palette20 = [
       '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
       '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf',
@@ -143,41 +113,51 @@
     function highlight(e) { e.target.setStyle({ weight: 3, color: '#000', fillOpacity: 0.7 }); }
     function resetHighlight(e) { geojson.resetStyle(e.target); }
 
-    // 5) Shared HTML builders (hover card + popup card)
+    // 3) Name helpers: remove "network"/"networks" (case-insensitive), then format
+    function cleanedName(name) {
+      if (!name || typeof name !== 'string') return 'Unnamed';
+      // Remove whole word "network" or "networks" (any case)
+      const withoutNetwork = name.replace(/\bnetworks?\b/gi, '').replace(/\s+/g, ' ').trim();
+      return withoutNetwork || 'Unnamed';
+    }
+    function multilineName(name) {
+      const base = cleanedName(name);
+      return base.split(/\s+/).filter(Boolean).join('<br>');
+    }
+
+    // 4) Shared HTML builders (hover card + popup card)
     function allPhotos(props = {}) {
       return [props.photo1, props.photo2, props.photo3, props.photo4, props.photo5, props.photo6]
         .filter(url => typeof url === 'string' && url.trim().length > 0);
     }
     function hoverCardHtml(props = {}) {
+      const name = cleanedName(props.name);
       return `
         <div class="tip">
-          <div class="tip-name">${props.name ?? 'Unnamed'}</div>
+          <div class="tip-name">${name}</div>
           <div><span class="label">Leaders:</span> ${props.leaders ?? '—'}</div>
         </div>`;
     }
     function popupCardHtml(props = {}) {
+      const name = cleanedName(props.name);
       const photos = allPhotos(props);
       const gallery = photos.length
         ? `<div class="gallery">
             ${photos.map((p, i) =>
               `<a href="${p}" target="_blank" rel="noopener noreferrer" title="Open photo ${i+1}">
-                 <img src="${p}" alt="Photo ${i+1} of ${props.name ?? 'item'}" loading="lazy">
+                 <img src="${p}" alt="Photo ${i+1} of ${name}" loading="lazy">
                </a>`).join('')}
            </div>`
         : '';
       return `
         <div class="tip">
-          <div class="tip-name">${props.name ?? 'Unnamed'}</div>
+          <div class="tip-name">${name}</div>
           <div><span class="label">Leaders:</span> ${props.leaders ?? '—'}</div>
           ${gallery ? '<hr/>' + gallery : ''}
         </div>`;
     }
 
-    // Permanent label: break the name into words, stacked
-    function multilineName(name) {
-      if (!name || typeof name !== 'string') return 'Unnamed';
-      return name.trim().split(/\s+/).filter(Boolean).join('<br>');
-    }
+    // Permanent label options
     const labelOptions = {
       permanent: true,
       direction: 'center',
@@ -185,14 +165,14 @@
       opacity: 1
     };
 
-    // 6) Per-feature interactions
+    // 5) Per-feature interactions
     function onEachFeature(feature, layer) {
-      // Permanent stacked-name label
+      // Permanent stacked-name label (with "network(s)" removed)
       try {
         layer.bindTooltip(multilineName(feature.properties?.name), labelOptions);
       } catch (e) { /* ignore if invalid */ }
 
-      // Hover tooltip (same card look as popup, no photos)
+      // Hover tooltip (card look, no photos)
       layer.on('mouseover', (e) => {
         highlight(e);
         const tip = L.tooltip({
@@ -214,7 +194,7 @@
         if (layer._hoverTip) { map.removeLayer(layer._hoverTip); layer._hoverTip = null; }
       });
 
-      // Click popup (same card look, includes gallery)
+      // Click popup (card look, includes gallery)
       layer.on('click', () => {
         layer.bindPopup(popupCardHtml(feature.properties), { maxWidth: 480 }).openPopup();
       });
@@ -222,19 +202,14 @@
 
     let geojson;
 
-    // 7) Load your external GeoJSON and render
+    // 6) Load your external GeoJSON and render
     fetch('https://tbc-networks.onrender.com/networks.geojson', { cache: 'no-cache' })
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
       .then(data => {
-        geojson = L.geoJSON(data, { style, onEachFeature });
-
-        // Add overlay to map and to the layer control
-        geojson.addTo(map);
-        layerControl.addOverlay(geojson, 'Networks');
-
+        geojson = L.geoJSON(data, { style, onEachFeature }).addTo(map);
         const bounds = geojson.getBounds();
         if (bounds.isValid()) map.fitBounds(bounds.pad(0.05));
       })
