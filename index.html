@@ -18,26 +18,27 @@
     .tip { font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     .tip .label { color:#666; }
     .tip-name {
-      font-size: 15px;      /* larger name */
+      font-size: 15px;      
       font-weight: 600;
       margin-bottom: 2px;
       color: #111;
     }
 
-    /* Permanent polygon labels (names split across lines) */
+    /* Permanent polygon labels */
     .poly-label {
       background: transparent;
       border: 0;
       box-shadow: none;
-      color: #1f2937; /* dark gray */
+      color: #1f2937;
       font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       text-align: center;
-      white-space: nowrap; /* each word is on its own line via <br> */
+      white-space: nowrap;
       text-shadow: 0 1px 2px rgba(255,255,255,.85), 0 0 2px rgba(255,255,255,.9);
-      pointer-events: none; /* clicks pass through to polygon */
+      pointer-events: none;
+      line-height: 1.15;
     }
 
-    /* Make the hover tooltip visually match a small popup "card" */
+    /* Hover tooltip styled like popup */
     .leaflet-tooltip.hover-tip {
       background: #fff;
       color: #111;
@@ -78,7 +79,7 @@
     // 1) Map
     const map = L.map('map', { center: [37.8, -122.3], zoom: 9, preferCanvas: true });
 
-    // 2) Basemap layers (no Dark Matter)
+    // 2) Basemap layers
     const esriGray = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
       {
@@ -86,21 +87,16 @@
         attribution: 'Tiles &copy; Esri — Esri, HERE, Garmin, FAO, USGS, NGA, EPA, NPS'
       }
     );
-
     const cartoPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 20, subdomains: 'abcd',
       attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
     });
-
     const osmStandard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 20,
       attribution: '&copy; OpenStreetMap contributors'
     });
 
-    // Add default basemap
     esriGray.addTo(map);
-
-    // Basemap selector only (no overlays)
     const baseMaps = {
       'Esri World Gray Canvas': esriGray,
       'CartoDB Positron': cartoPositron,
@@ -108,12 +104,14 @@
     };
     L.control.layers(baseMaps, null, { position: 'topright', collapsed: false }).addTo(map);
 
-    // 3) 20 distinct colors; choose deterministically per feature for stability
-    const palette20 = [
+    // 3) 30 distinct colors
+    const palette30 = [
       '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
       '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf',
       '#393b79','#637939','#8c6d31','#843c39','#7b4173',
-      '#3182bd','#31a354','#756bb1','#636363','#e6550d'
+      '#3182bd','#31a354','#756bb1','#636363','#e6550d',
+      '#9edae5','#c7c7c7','#bc80bd','#ffed6f','#a6cee3',
+      '#b2df8a','#fb9a99','#fdbf6f','#cab2d6','#6a3d9a'
     ];
     function hashIndex(str, m) {
       let h = 0;
@@ -123,7 +121,7 @@
     function colorForFeature(feature) {
       const props = feature.properties || {};
       const key = String(props.id || props.name || JSON.stringify(feature.geometry) || Math.random());
-      return palette20[hashIndex(key, palette20.length)];
+      return palette30[hashIndex(key, palette30.length)];
     }
     function style(feature) {
       return {
@@ -136,19 +134,17 @@
     function highlight(e) { e.target.setStyle({ weight: 3, color: '#000', fillOpacity: 0.7 }); }
     function resetHighlight(e) { geojson.resetStyle(e.target); }
 
-    // 4) Name helpers: remove "network"/"networks" (case-insensitive), then format
+    // 4) Name helpers: remove "network(s)" (case-insensitive), then format
     function cleanedName(name) {
       if (!name || typeof name !== 'string') return 'Unnamed';
-      // Remove whole word "network" or "networks" (any case)
-      const withoutNetwork = name.replace(/\bnetworks?\b/gi, '').replace(/\s+/g, ' ').trim();
-      return withoutNetwork || 'Unnamed';
+      return name.replace(/\bnetworks?\b/gi, '').replace(/\s+/g, ' ').trim() || 'Unnamed';
     }
     function multilineName(name) {
       const base = cleanedName(name);
       return base.split(/\s+/).filter(Boolean).join('<br>');
     }
 
-    // 5) Shared HTML builders (hover card + popup card)
+    // 5) Shared HTML builders
     function allPhotos(props = {}) {
       return [props.photo1, props.photo2, props.photo3, props.photo4, props.photo5, props.photo6]
         .filter(url => typeof url === 'string' && url.trim().length > 0);
@@ -188,14 +184,26 @@
       opacity: 1
     };
 
+    // Dynamic label sizing
+    function fontSizeForZoom(z) {
+      const size = 8 + (z * 0.7);
+      return Math.max(10, Math.min(20, Math.round(size)));
+    }
+    function updateLabelSizes() {
+      const z = map.getZoom();
+      const px = fontSizeForZoom(z);
+      document.querySelectorAll('.poly-label').forEach(el => {
+        el.style.fontSize = px + 'px';
+        el.style.lineHeight = '1.15';
+      });
+    }
+
     // 6) Per-feature interactions
     function onEachFeature(feature, layer) {
-      // Permanent stacked-name label (with "network(s)" removed)
       try {
         layer.bindTooltip(multilineName(feature.properties?.name), labelOptions);
-      } catch (e) { /* ignore if invalid */ }
+      } catch (e) {}
 
-      // Hover tooltip (card look, no photos)
       layer.on('mouseover', (e) => {
         highlight(e);
         const tip = L.tooltip({
@@ -209,15 +217,11 @@
         layer._hoverTip = tip;
         tip.addTo(map);
       });
-      layer.on('mousemove', (e) => {
-        if (layer._hoverTip) layer._hoverTip.setLatLng(e.latlng);
-      });
+      layer.on('mousemove', (e) => { if (layer._hoverTip) layer._hoverTip.setLatLng(e.latlng); });
       layer.on('mouseout', (e) => {
         resetHighlight(e);
         if (layer._hoverTip) { map.removeLayer(layer._hoverTip); layer._hoverTip = null; }
       });
-
-      // Click popup (card look, includes gallery)
       layer.on('click', () => {
         layer.bindPopup(popupCardHtml(feature.properties), { maxWidth: 480 }).openPopup();
       });
@@ -225,18 +229,19 @@
 
     let geojson;
 
-    // 7) Load your external GeoJSON and render (as a non-toggleable overlay)
+    // 7) Load external GeoJSON
     fetch('https://tbc-networks.onrender.com/networks.geojson', { cache: 'no-cache' })
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
+      .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })
       .then(data => {
         geojson = L.geoJSON(data, { style, onEachFeature }).addTo(map);
         const bounds = geojson.getBounds();
         if (bounds.isValid()) map.fitBounds(bounds.pad(0.05));
+        setTimeout(updateLabelSizes, 0);
       })
       .catch(err => console.error('Failed to load GeoJSON:', err));
+
+    map.on('zoomend', updateLabelSizes);
+    map.on('baselayerchange', updateLabelSizes);
   </script>
 </body>
 </html>
