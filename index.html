@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Leaflet + Networks GeoJSON (photo gallery popups)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    .leaflet-interactive { cursor: pointer; }
+    .tip { font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    .tip .label { color:#666; }
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .gallery a {
+      display:block; border-radius:8px; overflow:hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    }
+    .gallery img {
+      display:block; width:100%; height:100%;
+      object-fit: cover; aspect-ratio: 4 / 3;
+    }
+    hr { border:0; border-top:1px solid #e9ecef; margin:8px 0; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script>
+    // 1) Map + baselayer
+    const map = L.map('map', { center: [37.8, -122.3], zoom: 9, preferCanvas: true });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 20,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // 2) Styling + interaction
+    function style(feature) {
+      const hasPhotos = (feature.properties?.photo_count ?? 0) > 0;
+      return {
+        color: hasPhotos ? '#0b7285' : '#495057',
+        weight: 1.5,
+        fillColor: hasPhotos ? '#99e9f2' : '#ced4da',
+        fillOpacity: 0.35
+      };
+    }
+    function highlight(e) { e.target.setStyle({ weight: 3, color: '#084c61', fillOpacity: 0.5 }); }
+    function resetHighlight(e) { geojson.resetStyle(e.target); }
+
+    // Collect all non-empty photo URLs
+    function allPhotos(props = {}) {
+      return [props.photo1, props.photo2, props.photo3, props.photo4, props.photo5, props.photo6]
+        .filter(url => typeof url === 'string' && url.trim().length > 0);
+    }
+
+    // Tooltip = lightweight
+    function tooltipHtml(props = {}) {
+      return `
+        <div class="tip">
+          <div><strong>${props.name ?? 'Unnamed'}</strong></div>
+          <div><span class="label">Leaders:</span> ${props.leaders ?? '—'}</div>
+        </div>`;
+    }
+
+    // Popup = richer, includes gallery if photos are present
+    function popupHtml(props = {}) {
+      const photos = allPhotos(props);
+      const gallery = photos.length
+        ? `<div class="gallery">
+            ${photos.map((p, i) =>
+              `<a href="${p}" target="_blank" rel="noopener noreferrer" title="Open photo ${i+1}">
+                 <img src="${p}" alt="Photo ${i+1} of ${props.name ?? 'item'}" loading="lazy">
+               </a>`).join('')}
+           </div>`
+        : '';
+
+      return `
+        <div class="tip">
+          <div><strong>${props.name ?? 'Unnamed'}</strong></div>
+          <div><span class="label">Leaders:</span> ${props.leaders ?? '—'}</div>
+          <hr/>
+          <div><span class="label">ID:</span> ${props.id ?? '—'}</div>
+          <div><span class="label">Photos:</span> ${props.photo_count ?? 0}</div>
+          ${gallery}
+        </div>`;
+    }
+
+    function onEachFeature(feature, layer) {
+      layer.bindTooltip(tooltipHtml(feature.properties), { sticky: true, opacity: 0.95 });
+      layer.on({
+        mouseover: highlight,
+        mouseout: resetHighlight,
+        click: () => layer.bindPopup(popupHtml(feature.properties), { maxWidth: 420 }).openPopup()
+      });
+    }
+
+    let geojson;
+
+    // 3) Fetch your external GeoJSON
+    fetch('https://tbc-networks.onrender.com/networks.geojson', { cache: 'no-cache' })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
+        geojson = L.geoJSON(data, { style, onEachFeature }).addTo(map);
+        const bounds = geojson.getBounds();
+        if (bounds.isValid()) map.fitBounds(bounds.pad(0.05));
+      })
+      .catch(err => console.error('Failed to load GeoJSON:', err));
+  </script>
+</body>
+</html>
