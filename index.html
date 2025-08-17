@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Leaflet + Networks (labels, simple basemap, 20 colors)</title>
+  <title>Networks Map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link
     rel="stylesheet"
@@ -13,30 +13,51 @@
   <style>
     html, body, #map { height: 100%; margin: 0; }
     .leaflet-interactive { cursor: pointer; }
+
+    /* Shared tip styles */
     .tip { font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     .tip .label { color:#666; }
+    .tip-name {
+      font-size: 15px;      /* larger */
+      font-weight: 600;
+      margin-bottom: 2px;
+      color: #111;
+    }
+
+    /* Permanent polygon labels (names) */
+    .poly-label {
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      color: #1f2937; /* dark gray */
+      font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      text-align: center;
+      white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(255,255,255,.85), 0 0 2px rgba(255,255,255,.9);
+      pointer-events: none; /* clicks pass through to polygon */
+    }
+
+    /* Hover tooltip */
+    .hover-tip {
+      /* default Leaflet tooltip styling is fine; keep subtle */
+    }
+
+    /* Popup photo gallery */
     .gallery {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
       gap: 8px;
       margin-top: 8px;
     }
-    .gallery a { display:block; border-radius:8px; overflow:hidden; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
-    .gallery img { display:block; width:100%; height:100%; object-fit: cover; aspect-ratio: 4 / 3; }
-    hr { border:0; border-top:1px solid #e9ecef; margin:8px 0; }
-
-    /* Polygon labels (permanent tooltips) */
-    .poly-label {
-      background: transparent;
-      border: 0;
-      box-shadow: none;
-      color: #1f2937;             /* dark gray for readability */
-      font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      text-align: center;
-      white-space: nowrap;
-      text-shadow: 0 1px 2px rgba(255,255,255,.8), 0 0 2px rgba(255,255,255,.9);
-      pointer-events: none;       /* clicks go to polygon underneath */
+    .gallery a {
+      display:block; border-radius:8px; overflow:hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,.12);
     }
+    .gallery img {
+      display:block; width:100%; height:100%;
+      object-fit: cover; aspect-ratio: 4 / 3;
+    }
+    hr { border:0; border-top:1px solid #e9ecef; margin:8px 0; }
   </style>
 </head>
 <body>
@@ -48,7 +69,7 @@
     crossorigin=""
   ></script>
   <script>
-    // Map + simple basemap (CartoDB Positron)
+    // 1) Map + simple basemap (CartoDB Positron)
     const map = L.map('map', { center: [37.8, -122.3], zoom: 9, preferCanvas: true });
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 20,
@@ -58,22 +79,31 @@
         '&copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(map);
 
-    // 20 distinct colors (Tableau/D3-like mix)
+    // 2) 20 distinct colors; pick deterministically per feature for stability
     const palette20 = [
       '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
       '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf',
       '#393b79','#637939','#8c6d31','#843c39','#7b4173',
       '#3182bd','#31a354','#756bb1','#636363','#e6550d'
     ];
-    let featureIndex = 0;
 
-    function style() {
-      const color = palette20[featureIndex % palette20.length];
-      featureIndex++;
+    function hashIndex(str, m) {
+      let h = 0;
+      for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+      return Math.abs(h) % m;
+    }
+
+    function colorForFeature(feature) {
+      const props = feature.properties || {};
+      const key = String(props.id || props.name || JSON.stringify(feature.geometry) || Math.random());
+      return palette20[hashIndex(key, palette20.length)];
+    }
+
+    function style(feature) {
       return {
         color: '#333',       // border
         weight: 1.5,
-        fillColor: color,
+        fillColor: colorForFeature(feature),
         fillOpacity: 0.5
       };
     }
@@ -81,21 +111,22 @@
     function highlight(e) { e.target.setStyle({ weight: 3, color: '#000', fillOpacity: 0.7 }); }
     function resetHighlight(e) { geojson.resetStyle(e.target); }
 
+    // 3) Tooltip + popup builders
     function allPhotos(props = {}) {
       return [props.photo1, props.photo2, props.photo3, props.photo4, props.photo5, props.photo6]
         .filter(url => typeof url === 'string' && url.trim().length > 0);
     }
 
-    // Tooltip (hover-only) stays minimal; labels are handled separately
-    function tooltipHtml(props = {}) {
+    // Hover tooltip content (larger name + leaders)
+    function hoverTooltipHtml(props = {}) {
       return `
         <div class="tip">
-          <div><strong>${props.name ?? 'Unnamed'}</strong></div>
+          <div class="tip-name">${props.name ?? 'Unnamed'}</div>
           <div><span class="label">Leaders:</span> ${props.leaders ?? '—'}</div>
         </div>`;
     }
 
-    // Popup WITHOUT id/photo_count; includes photo gallery if present
+    // Popup: name (larger) + leaders + photo gallery (no id/photo_count)
     function popupHtml(props = {}) {
       const photos = allPhotos(props);
       const gallery = photos.length
@@ -109,49 +140,71 @@
 
       return `
         <div class="tip">
-          <div><strong>${props.name ?? 'Unnamed'}</strong></div>
+          <div class="tip-name">${props.name ?? 'Unnamed'}</div>
           <div><span class="label">Leaders:</span> ${props.leaders ?? '—'}</div>
           ${gallery ? '<hr/>' + gallery : ''}
         </div>`;
     }
 
-    // Add permanent name label at polygon center
-    function addNameLabel(layer, name) {
-      try {
-        const center = layer.getBounds().getCenter();
-        layer.bindTooltip(name || 'Unnamed', {
-          permanent: true,
-          direction: 'center',
-          className: 'poly-label',
-          opacity: 1
-        }).openTooltip(center);
-      } catch (_) {
-        /* fallback: ignore if bounds invalid */
-      }
-    }
+    // Permanent label options (name)
+    const labelOptions = {
+      permanent: true,
+      direction: 'center',
+      className: 'poly-label',
+      opacity: 1
+    };
 
+    // 4) Per-feature interactions
     function onEachFeature(feature, layer) {
-      // Hover tooltip
-      layer.bindTooltip(tooltipHtml(feature.properties), { sticky: true, opacity: 0.95 });
-      // Popup
-      layer.on({
-        mouseover: highlight,
-        mouseout: resetHighlight,
-        click: () => layer.bindPopup(popupHtml(feature.properties), { maxWidth: 460 }).openPopup()
+      // Permanent name label at polygon center
+      try {
+        layer.bindTooltip(feature.properties?.name || 'Unnamed', labelOptions);
+      } catch (e) {
+        /* ignore if bounds/centroid invalid */
+      }
+
+      // Hover tooltip implemented as a separate floating tooltip
+      layer.on('mouseover', (e) => {
+        highlight(e);
+        const tip = L.tooltip({
+          className: 'tip hover-tip',
+          direction: 'top',
+          opacity: 0.95,
+          offset: [0, -8]
+        })
+          .setContent(hoverTooltipHtml(feature.properties))
+          .setLatLng(e.latlng);
+        layer._hoverTip = tip;
+        tip.addTo(map);
       });
-      // Permanent label
-      addNameLabel(layer, feature.properties?.name);
+
+      layer.on('mousemove', (e) => {
+        if (layer._hoverTip) layer._hoverTip.setLatLng(e.latlng);
+      });
+
+      layer.on('mouseout', (e) => {
+        resetHighlight(e);
+        if (layer._hoverTip) {
+          map.removeLayer(layer._hoverTip);
+          layer._hoverTip = null;
+        }
+      });
+
+      // Click popup
+      layer.on('click', () => {
+        layer.bindPopup(popupHtml(feature.properties), { maxWidth: 480 }).openPopup();
+      });
     }
 
     let geojson;
 
+    // 5) Load your external GeoJSON and render
     fetch('https://tbc-networks.onrender.com/networks.geojson', { cache: 'no-cache' })
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
       .then(data => {
-        featureIndex = 0; // reset before styling
         geojson = L.geoJSON(data, { style, onEachFeature }).addTo(map);
         const bounds = geojson.getBounds();
         if (bounds.isValid()) map.fitBounds(bounds.pad(0.05));
