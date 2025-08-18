@@ -73,37 +73,51 @@
     const map = L.map('map', { center: [37.8, -122.3], zoom: 9, preferCanvas: true });
 
     // ------------------------------
-    // Basemaps (all 15 — comment out any you don't want)
+    // Basemaps (all 15 labels; we only add those providers that actually exist)
     // ------------------------------
-    const baseMaps = {
-      // --- Minimal & Light ---
-      "Carto Light (Positron)":   L.tileLayer.provider('CartoDB.Positron'),
-      "Esri World Gray Canvas":   L.tileLayer.provider('Esri.WorldGrayCanvas'),
-      "Stamen Toner Lite":        L.tileLayer.provider('Stamen.TonerLite'),
+    const providerList = [
+      // Minimal & Light
+      ['Carto Light (Positron)', 'CartoDB.Positron'],
+      ['Esri World Gray Canvas', 'Esri.WorldGrayCanvas'],
+      ['Stamen Toner Lite', 'Stamen.TonerLite'],
+      // Medium / Reference
+      ['OpenStreetMap Standard', 'OpenStreetMap.Mapnik'],
+      ['Carto Voyager', 'CartoDB.Voyager'],
+      ['Esri World Street Map', 'Esri.WorldStreetMap'],
+      ['OpenTopoMap', 'OpenTopoMap'],
+      // Dark / High Contrast
+      ['Carto Dark Matter', 'CartoDB.DarkMatter'],
+      ['Stamen Toner (Dark B/W)', 'Stamen.Toner'],
+      // Satellite / Aerial
+      ['Esri World Imagery', 'Esri.WorldImagery'],
+      ['USGS US Topo', 'USGS.USTopo'],
+      // Hybrid / Specialty
+      ['Esri NatGeo World Map', 'Esri.NatGeoWorldMap'],
+      ['Stamen Watercolor', 'Stamen.Watercolor'],
+      ['Hike & Bike', 'HikeBike.HikeBike'],
+      ['Wikimedia', 'Wikimedia'] // may not exist; we handle it gracefully
+    ];
 
-      // --- Medium / Reference ---
-      "OpenStreetMap Standard":   L.tileLayer.provider('OpenStreetMap.Mapnik'),
-      "Carto Voyager":            L.tileLayer.provider('CartoDB.Voyager'),
-      "Esri World Street Map":    L.tileLayer.provider('Esri.WorldStreetMap'),
-      "OpenTopoMap":              L.tileLayer.provider('OpenTopoMap'),
+    function providerExists(id) {
+      return !!(L.TileLayer && L.TileLayer.Provider && L.TileLayer.Provider.providers && L.TileLayer.Provider.providers[id]);
+    }
 
-      // --- Dark / High Contrast ---
-      "Carto Dark Matter":        L.tileLayer.provider('CartoDB.DarkMatter'),
-      "Stamen Toner (Dark B/W)":  L.tileLayer.provider('Stamen.Toner'),
+    const baseMaps = {};
+    providerList.forEach(([label, id]) => {
+      if (providerExists(id)) {
+        baseMaps[label] = L.tileLayer.provider(id);
+      } else {
+        console.warn('Skipping missing provider:', id);
+      }
+    });
 
-      // --- Satellite / Aerial ---
-      "Esri World Imagery":       L.tileLayer.provider('Esri.WorldImagery'),
-      "USGS US Topo":             L.tileLayer.provider('USGS.USTopo'),
-
-      // --- Hybrid / Specialty ---
-      "Esri NatGeo World Map":    L.tileLayer.provider('Esri.NatGeoWorldMap'),
-      "Stamen Watercolor":        L.tileLayer.provider('Stamen.Watercolor'),
-      "Hike & Bike":              L.tileLayer.provider('HikeBike.HikeBike'),
-      "Wikimedia":                L.tileLayer.provider('Wikimedia')
-    };
-
-    // Default basemap
-    baseMaps["Esri World Gray Canvas"].addTo(map);
+    // Default basemap: prefer Esri World Gray Canvas; otherwise first available
+    if (baseMaps['Esri World Gray Canvas']) {
+      baseMaps['Esri World Gray Canvas'].addTo(map);
+    } else {
+      const first = Object.values(baseMaps)[0];
+      if (first) first.addTo(map);
+    }
 
     // ------------------------------
     // Overlays (Networks & Counties)
@@ -113,8 +127,8 @@
 
     // Layer control (basemaps + overlays)
     const layerControl = L.control.layers(baseMaps, {
-      "Networks": networksGroup,
-      "Counties": countiesGroup
+      'Networks': networksGroup,
+      'Counties': countiesGroup
     }, { position: 'topright', collapsed: false }).addTo(map);
 
     // Add headings inside control
@@ -165,12 +179,11 @@
     }
     function renderGallery(photos){
       if (!photos.length) return '';
-      // Build HTML safely without nested template-string backticks
-      const items = photos.map((p, i) => (
+      const items = photos.map((p, i) =>
         '<a href="' + p + '" target="_blank" rel="noopener">' +
           '<img src="' + p + '" alt="Photo ' + (i+1) + '" loading="lazy" />' +
         '</a>'
-      )).join('');
+      ).join('');
       return '<hr/><div class="gallery">' + items + '</div>';
     }
     function infoCardHtml(props = {}){
