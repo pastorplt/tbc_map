@@ -25,7 +25,7 @@
     .legend-panel {
       position: absolute;
       top: 70px; left: 10px;
-      width: 260px; max-height: calc(100% - 90px);
+      width: 300px; max-height: calc(100% - 90px);
       overflow: auto;
       z-index: 1000;
       background: rgba(255,255,255,0.95);
@@ -38,10 +38,30 @@
     .legend-title {
       font-weight: 700; font-size: 14px; margin: 4px 0 8px; color: #111;
     }
-    .legend-list { list-style: none; padding: 0; margin: 0; position: relative; }
+
+    /* County groups (accordion using <details>) */
+    .county-group { margin-bottom: 6px; border-radius: 8px; }
+    .county-group summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 8px 10px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      background: #f8fafc; /* very light */
+      border: 1px solid #e5e7eb;
+      position: sticky; top: 0; /* keep headers visible while scrolling each section */
+    }
+    .county-name { font-weight: 600; color: #111; }
+    .county-count {
+      font-size: 12px; color: #374151; background: #e5e7eb; border-radius: 999px;
+      padding: 2px 8px;
+    }
+    .county-group[open] summary { background: #eef2ff; } /* subtle when open */
+
+    .legend-list { list-style: none; padding: 6px 0 0; margin: 0; position: relative; }
     .legend-item {
       display: flex; align-items: center; gap: 10px;
-      padding: 6px 6px; border-radius: 8px;
+      padding: 6px 8px; border-radius: 8px;
       cursor: pointer;
     }
     .legend-item:hover { background: #f3f4f6; }
@@ -52,7 +72,7 @@
     }
     .legend-name { color: #111; }
 
-    /* Legend popup (same visual language as map popups/tooltips) */
+    /* Legend popup (same visual language as map card) */
     .legend-popup {
       position: absolute;
       left: 8px;
@@ -119,9 +139,9 @@
     <div class="map-title">TBC Networks</div>
 
     <!-- Legend panel -->
-    <aside class="legend-panel">
-      <div class="legend-title">Networks</div>
-      <ul id="legendList" class="legend-list"></ul>
+    <aside class="legend-panel" id="legendPanel">
+      <div class="legend-title">Networks by County</div>
+      <div id="legendGroups"></div>
     </aside>
   </div>
 
@@ -206,59 +226,50 @@
       );
     }
 
-    // Legend storage
-    const legendItems = [];
-    const legendPanel = document.querySelector('.legend-panel');
-    const legendList = document.getElementById('legendList');
-    let legendPopupEl = null; // current popup element
-    let legendPopupForIdx = null; // which item it's anchored to
+    // Legend state & helpers
+    const legendPanel = document.getElementById('legendPanel');
+    const legendGroupsEl = document.getElementById('legendGroups');
+    let legendPopupEl = null;
+    let legendPopupAnchorEl = null;
 
-    function showLegendPopup(idx, html) {
-      // Remove any existing popup
+    function showLegendPopup(anchorEl, html) {
       if (legendPopupEl) legendPopupEl.remove();
-
-      // Build popup element
       const el = document.createElement('div');
       el.className = 'legend-popup';
       el.innerHTML = '<button class="close" aria-label="Close legend popup">&times;</button>' + html;
-
-      // Insert into panel
       legendPanel.appendChild(el);
 
-      // Position it just below the target list item
-      const li = legendList.querySelector('li[data-idx="' + idx + '"]');
-      const listRect = legendList.getBoundingClientRect();
-      const liRect = li.getBoundingClientRect();
-
-      const relativeTop = (liRect.top - listRect.top) + legendList.scrollTop + li.offsetHeight + 6;
+      // Position below the anchor list item
+      const panelRect = legendPanel.getBoundingClientRect();
+      const aRect = anchorEl.getBoundingClientRect();
+      const relativeTop = (aRect.top - panelRect.top) + legendPanel.scrollTop + anchorEl.offsetHeight + 6;
       el.style.top = relativeTop + 'px';
 
-      // Close behavior
-      el.querySelector('.close').addEventListener('click', () => { el.remove(); legendPopupEl = null; legendPopupForIdx = null; });
+      el.querySelector('.close').addEventListener('click', () => {
+        el.remove(); legendPopupEl = null; legendPopupAnchorEl = null;
+      });
 
-      // Save refs
       legendPopupEl = el;
-      legendPopupForIdx = idx;
+      legendPopupAnchorEl = anchorEl;
     }
 
-    // Reposition popup on legend scroll/resize
     function repositionLegendPopup() {
-      if (!legendPopupEl || legendPopupForIdx == null) return;
-      const li = legendList.querySelector('li[data-idx="' + legendPopupForIdx + '"]');
-      if (!li) return;
-      const listRect = legendList.getBoundingClientRect();
-      const liRect = li.getBoundingClientRect();
-      const relativeTop = (liRect.top - listRect.top) + legendList.scrollTop + li.offsetHeight + 6;
+      if (!legendPopupEl || !legendPopupAnchorEl) return;
+      const panelRect = legendPanel.getBoundingClientRect();
+      const aRect = legendPopupAnchorEl.getBoundingClientRect();
+      const relativeTop = (aRect.top - panelRect.top) + legendPanel.scrollTop + legendPopupAnchorEl.offsetHeight + 6;
       legendPopupEl.style.top = relativeTop + 'px';
     }
     legendPanel.addEventListener('scroll', repositionLegendPopup);
     window.addEventListener('resize', repositionLegendPopup);
 
-    // --- Load Networks ---
+    // --- Load Networks & build county-grouped legend ---
     let networksGeoJson;
     fetch('https://tbc-networks.onrender.com/networks.geojson', { cache: 'no-cache' })
       .then(res => res.json())
       .then(data => {
+        const groups = new Map(); // countyName -> array of items
+
         networksGeoJson = L.geoJSON(data, {
           style: styleNetworks,
           onEachFeature: (feature, layer) => {
@@ -267,7 +278,7 @@
               permanent: true, direction: 'center', className: 'poly-label', opacity: 1
             });
 
-            // Map hover card (unchanged)
+            // Map hover card
             layer.on('mouseover', (e) => {
               highlight(e);
               const tip = L.tooltip({ className: 'hover-tip', direction: 'top', opacity: 0.95, offset: [0,-8] })
@@ -281,19 +292,27 @@
               if (layer._hoverTip) { map.removeLayer(layer._hoverTip); layer._hoverTip = null; }
             });
 
-            // Map click popup (unchanged)
+            // Map click popup
             layer.on('click', () => {
               layer.bindPopup(infoCardHtml(feature.properties), { maxWidth: 480 }).openPopup();
             });
 
-            // Collect for legend
-            const displayName = cleanedName(feature.properties?.name || 'Unnamed');
-            legendItems.push({
-              name: displayName,
+            // County grouping
+            const props = feature.properties || {};
+            const county =
+              (props.County && String(props.County).trim()) ||
+              (props.county && String(props.county).trim()) ||
+              'Unspecified';
+
+            const name = cleanedName(props.name || 'Unnamed');
+            const item = {
+              name,
               color: colorForFeature(feature),
-              layer,
-              props: feature.properties || {}
-            });
+              props,
+              layer
+            };
+            if (!groups.has(county)) groups.set(county, []);
+            groups.get(county).push(item);
           }
         }).addTo(networksGroup);
 
@@ -301,42 +320,74 @@
         const b = networksGeoJson.getBounds();
         if (b.isValid()) map.fitBounds(b.pad(0.05));
 
-        // Build the legend list
-        buildLegend();
+        // Build grouped legend UI
+        buildCountyLegend(groups);
       });
 
-    // --- Legend rendering & interactions ---
-    function buildLegend() {
-      // Sort by name (A→Z)
-      legendItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-      legendList.innerHTML = '';
+    function buildCountyLegend(groups) {
+      // Sort counties A→Z (Unspecified last)
+      const counties = Array.from(groups.keys());
+      counties.sort((a, b) => {
+        if (a === 'Unspecified' && b !== 'Unspecified') return 1;
+        if (b === 'Unspecified' && a !== 'Unspecified') return -1;
+        return a.localeCompare(b, undefined, { sensitivity: 'base' });
+      });
 
-      legendItems.forEach((item, idx) => {
-        const li = document.createElement('li');
-        li.className = 'legend-item';
-        li.setAttribute('data-idx', String(idx));
+      legendGroupsEl.innerHTML = '';
+      counties.forEach((county, cIdx) => {
+        // Sort networks A→Z within county
+        const items = groups.get(county).slice().sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+        );
 
-        const swatch = document.createElement('span');
-        swatch.className = 'swatch';
-        swatch.style.background = item.color;
+        // County group (details/summary)
+        const details = document.createElement('details');
+        details.className = 'county-group';
+        // Optionally open the first group
+        if (cIdx === 0) details.open = true;
 
-        const label = document.createElement('span');
-        label.className = 'legend-name';
-        label.innerHTML = item.name;
+        const summary = document.createElement('summary');
+        const nameEl = document.createElement('span'); nameEl.className = 'county-name'; nameEl.textContent = county;
+        const countEl = document.createElement('span'); countEl.className = 'county-count'; countEl.textContent = items.length;
+        summary.appendChild(nameEl); summary.appendChild(countEl);
 
-        li.appendChild(swatch);
-        li.appendChild(label);
-        legendList.appendChild(li);
+        const ul = document.createElement('ul');
+        ul.className = 'legend-list';
 
-        // Click: show tooltip popup anchored to the legend item (no map zoom)
-        li.addEventListener('click', () => {
-          const html = infoCardHtml(item.props);
-          showLegendPopup(idx, html);
+        items.forEach((item, idx) => {
+          const li = document.createElement('li');
+          li.className = 'legend-item';
+
+          const swatch = document.createElement('span');
+          swatch.className = 'swatch';
+          swatch.style.background = item.color;
+
+          const label = document.createElement('span');
+          label.className = 'legend-name';
+          label.innerHTML = item.name;
+
+          li.appendChild(swatch);
+          li.appendChild(label);
+          ul.appendChild(li);
+
+          // Click: open popup card under this li (no map zoom)
+          li.addEventListener('click', (e) => {
+            e.stopPropagation(); // don't toggle the <details>
+            const html = infoCardHtml(item.props);
+            showLegendPopup(li, html);
+          });
         });
+
+        details.appendChild(summary);
+        details.appendChild(ul);
+        legendGroupsEl.appendChild(details);
+
+        // Reposition popup when expanding/collapsing this county
+        details.addEventListener('toggle', repositionLegendPopup);
       });
     }
 
-    // --- Counties ---
+    // --- Counties layer (light yellow) ---
     function styleCounties(){ return { color:'#b59f3b', weight:1, fillColor:'#fff9c4', fillOpacity:0.5 }; }
     fetch('https://pastorplt.github.io/tbc_map/tbc_counties.geojson', { cache: 'no-cache' })
       .then(res => res.json())
