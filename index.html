@@ -153,31 +153,40 @@
     function highlight(e){ e.target.setStyle({ weight: 3, color:'#000', fillOpacity: 0.7 }); }
     function resetHighlight(e){ networksGeoJson && networksGeoJson.resetStyle(e.target); }
 
-    // Clean & stacked name (remove "network(s)"), word-per-line
     function cleanedName(name){
       if (!name || typeof name !== 'string') return 'Unnamed';
       return name.replace(/\bnetworks?\b/gi,'').replace(/\s+/g,' ').trim() || 'Unnamed';
     }
     function multilineName(name){ return cleanedName(name).split(/\s+/).filter(Boolean).join('<br>'); }
 
-    function allPhotos(props={}){
-      return [props.photo1,props.photo2,props.photo3,props.photo4,props.photo5,props.photo6]
+    function allPhotos(props = {}){
+      return [props.photo1, props.photo2, props.photo3, props.photo4, props.photo5, props.photo6]
         .filter(u => typeof u === 'string' && u.trim());
     }
-    function infoCardHtml(props={}){
+    function renderGallery(photos){
+      if (!photos.length) return '';
+      // Build HTML safely without nested template-string backticks
+      const items = photos.map((p, i) => (
+        '<a href="' + p + '" target="_blank" rel="noopener">' +
+          '<img src="' + p + '" alt="Photo ' + (i+1) + '" loading="lazy" />' +
+        '</a>'
+      )).join('');
+      return '<hr/><div class="gallery">' + items + '</div>';
+    }
+    function infoCardHtml(props = {}){
       const name = cleanedName(props.name);
-      const email = props.contact_email ? `<div><span class="label">Email:</span> <a href="mailto:${props.contact_email}">${props.contact_email}</a></div>` : '';
+      const email = props.contact_email
+        ? '<div><span class="label">Email:</span> <a href="mailto:' + props.contact_email + '">' + props.contact_email + '</a></div>'
+        : '';
       const photos = allPhotos(props);
-      const gallery = photos.length ? `<div class="gallery">${photos.map((p,i)=>`
-        <a href="${p}" target="_blank" rel="noopener">
-          <img src="${p}" alt="Photo ${i+1} of ${name}" loading="lazy" />
-        </a>`).join('')}</div>` : '';
-      return `<div class="tip">
-        <div class="tip-name">${name}</div>
-        <div><span class="label">Leaders:</span> ${props.leaders ?? '—'}</div>
-        ${email}
-        ${gallery ? '<hr/>' + gallery : ''}
-      </div>`;
+      return (
+        '<div class="tip">' +
+          '<div class="tip-name">' + name + '</div>' +
+          '<div><span class="label">Leaders:</span> ' + (props.leaders ?? '—') + '</div>' +
+          email +
+          renderGallery(photos) +
+        '</div>'
+      );
     }
 
     let networksGeoJson;
@@ -188,12 +197,12 @@
         networksGeoJson = L.geoJSON(data, {
           style: styleNetworks,
           onEachFeature: (feature, layer) => {
-            // Permanent label (does NOT get overwritten)
+            // Permanent label
             layer.bindTooltip(multilineName(feature.properties?.name), {
               permanent: true, direction: 'center', className: 'poly-label', opacity: 1
             });
 
-            // Hover card (separate tooltip so permanent label remains)
+            // Hover card as separate tooltip
             layer.on('mouseover', (e) => {
               highlight(e);
               const tip = L.tooltip({ className: 'hover-tip', direction: 'top', opacity: 0.95, offset: [0,-8] })
@@ -207,7 +216,7 @@
               if (layer._hoverTip) { map.removeLayer(layer._hoverTip); layer._hoverTip = null; }
             });
 
-            // Click popup (with photos)
+            // Click popup
             layer.on('click', () => {
               layer.bindPopup(infoCardHtml(feature.properties), { maxWidth: 480 }).openPopup();
             });
