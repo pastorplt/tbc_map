@@ -17,13 +17,13 @@
     .tip { font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     .tip .label { color:#666; }
     .tip-name {
-      font-size: 15px;      
+      font-size: 15px;
       font-weight: 600;
       margin-bottom: 2px;
       color: #111;
     }
 
-    /* Permanent polygon labels */
+    /* Permanent polygon labels (Networks) */
     .poly-label {
       background: transparent;
       border: 0;
@@ -78,31 +78,34 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
+    // --- Map ---
     const map = L.map('map', { center: [37.8, -122.3], zoom: 9, preferCanvas: true });
 
-    // Basemap layers
+    // --- Basemaps ---
     const esriGray = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-      { maxZoom: 20, attribution: 'Tiles &copy; Esri' }
+      { maxZoom: 20, attribution: 'Tiles &copy; Esri — Esri, HERE, Garmin, FAO, USGS, NGA, EPA, NPS' }
     ).addTo(map);
+
     const cartoPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 20, subdomains: 'abcd',
-      attribution: '&copy; OpenStreetMap &copy; CARTO'
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
     });
+
     const osmStandard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 20, attribution: '&copy; OpenStreetMap contributors'
     });
 
-    // Renamed basemap labels
-    const baseMaps = {
-      'light': esriGray,
-      'medium': cartoPositron,
-      'full': osmStandard
-    };
+    // Renamed labels and heading
+    const baseMaps = { 'light': esriGray, 'medium': cartoPositron, 'full': osmStandard };
 
-    const layerControl = L.control.layers(baseMaps, null, { position: 'topright', collapsed: false }).addTo(map);
+    // Create empty overlay groups now so they appear immediately in the control
+    const networksGroup = L.layerGroup().addTo(map);
+    const countiesGroup = L.layerGroup().addTo(map);
 
-    // Add "Basemap" heading at the top of the control
+    const layerControl = L.control.layers(baseMaps, { 'Networks': networksGroup, 'Counties': countiesGroup }, { position: 'topright', collapsed: false }).addTo(map);
+
+    // Add "Basemap" heading
     const controlContainer = layerControl.getContainer();
     const baseLayersList = controlContainer.querySelector('.leaflet-control-layers-base');
     if (baseLayersList) {
@@ -112,7 +115,7 @@
       baseLayersList.prepend(heading);
     }
 
-    // Color palette (30 colors)
+    // --- Styling & helpers for Networks ---
     const palette30 = [
       '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
       '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf',
@@ -121,50 +124,41 @@
       '#9edae5','#c7c7c7','#bc80bd','#ffed6f','#a6cee3',
       '#b2df8a','#fb9a99','#fdbf6f','#cab2d6','#6a3d9a'
     ];
-    function hashIndex(str, m) {
-      let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
-      return Math.abs(h) % m;
-    }
+    function hashIndex(str, m) { let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0; return Math.abs(h) % m; }
     function colorForFeature(feature) {
-      const props = feature.properties || {};
-      const key = String(props.id || props.name || JSON.stringify(feature.geometry) || Math.random());
+      const p = feature.properties || {};
+      const key = String(p.id || p.name || JSON.stringify(feature.geometry) || Math.random());
       return palette30[hashIndex(key, palette30.length)];
     }
-    function style(feature) {
+    function styleNetworks(feature) {
       return { color: '#333', weight: 1.5, fillColor: colorForFeature(feature), fillOpacity: 0.5 };
     }
     function highlight(e) { e.target.setStyle({ weight: 3, color: '#000', fillOpacity: 0.7 }); }
-    function resetHighlight(e) { geojson.resetStyle(e.target); }
+    function resetHighlight(e) { networksGeoJson && networksGeoJson.resetStyle(e.target); }
 
-    // Helpers
+    // Remove "network(s)" from names, format, etc.
     function cleanedName(name) {
       if (!name || typeof name !== 'string') return 'Unnamed';
       return name.replace(/\bnetworks?\b/gi, '').replace(/\s+/g, ' ').trim() || 'Unnamed';
     }
-    function multilineName(name) {
-      const base = cleanedName(name);
-      return base.split(/\s+/).filter(Boolean).join('<br>');
-    }
+    function multilineName(name) { return cleanedName(name).split(/\s+/).filter(Boolean).join('<br>'); }
+
     function allPhotos(props = {}) {
       return [props.photo1, props.photo2, props.photo3, props.photo4, props.photo5, props.photo6]
         .filter(url => typeof url === 'string' && url.trim().length > 0);
     }
 
-    // Tooltip / popup HTML
+    // Hover/popup card (includes contact_email as mailto)
     function infoCardHtml(props = {}) {
       const name = cleanedName(props.name);
+      const email = props.contact_email ? `<div><span class="label">Email:</span> <a href="mailto:${props.contact_email}">${props.contact_email}</a></div>` : '';
       const photos = allPhotos(props);
       const gallery = photos.length
-        ? `<div class="gallery">
-            ${photos.map((p, i) =>
+        ? `<div class="gallery">${photos.map((p, i) =>
               `<a href="${p}" target="_blank" rel="noopener noreferrer" title="Open photo ${i+1}">
                  <img src="${p}" alt="Photo ${i+1} of ${name}" loading="lazy">
                </a>`).join('')}
-           </div>`
-        : '';
-      const email = props.contact_email
-        ? `<div><span class="label">Email:</span> <a href="mailto:${props.contact_email}">${props.contact_email}</a></div>`
-        : '';
+           </div>` : '';
       return `
         <div class="tip">
           <div class="tip-name">${name}</div>
@@ -174,17 +168,21 @@
         </div>`;
     }
 
-    // Permanent label options
+    // Permanent label options + dynamic sizing
     const labelOptions = { permanent: true, direction: 'center', className: 'poly-label', opacity: 1 };
     function fontSizeForZoom(z) { return Math.max(10, Math.min(20, Math.round(8 + (z * 0.7)))); }
     function updateLabelSizes() {
-      const z = map.getZoom(), px = fontSizeForZoom(z);
-      document.querySelectorAll('.poly-label').forEach(el => { el.style.fontSize = px + 'px'; });
+      const px = fontSizeForZoom(map.getZoom());
+      document.querySelectorAll('.poly-label').forEach(el => { el.style.fontSize = px + 'px'; el.style.lineHeight = '1.15'; });
     }
 
-    function onEachFeature(feature, layer) {
+    // --- Load Networks (as overlay in networksGroup) ---
+    let networksGeoJson;
+    function onEachNetwork(feature, layer) {
+      // Permanent stacked-name label
       layer.bindTooltip(multilineName(feature.properties?.name), labelOptions);
 
+      // Hover tooltip (card look, no photos)
       layer.on('mouseover', (e) => {
         highlight(e);
         const tip = L.tooltip({ className: 'hover-tip', direction: 'top', opacity: 0.95, offset: [0, -8] })
@@ -197,23 +195,55 @@
         resetHighlight(e);
         if (layer._hoverTip) { map.removeLayer(layer._hoverTip); layer._hoverTip = null; }
       });
+
+      // Click popup (includes gallery)
       layer.on('click', () => {
         layer.bindPopup(infoCardHtml(feature.properties), { maxWidth: 480 }).openPopup();
       });
     }
 
-    let geojson;
     fetch('https://tbc-networks.onrender.com/networks.geojson', { cache: 'no-cache' })
-      .then(res => res.json())
+      .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })
       .then(data => {
-        geojson = L.geoJSON(data, { style, onEachFeature }).addTo(map);
-        const bounds = geojson.getBounds(); if (bounds.isValid()) map.fitBounds(bounds.pad(0.05));
+        networksGeoJson = L.geoJSON(data, { style: styleNetworks, onEachFeature: onEachNetwork });
+        networksGeoJson.addTo(networksGroup);
+
+        // Fit bounds to networks (will be expanded after counties load if needed)
+        const b = networksGeoJson.getBounds();
+        if (b.isValid()) map.fitBounds(b.pad(0.05));
+
+        // After labels exist, size them for current zoom
         setTimeout(updateLabelSizes, 0);
       })
-      .catch(err => console.error('Failed to load GeoJSON:', err));
+      .catch(err => console.error('Failed to load Networks GeoJSON:', err));
 
+    // Update label sizing on zoom and when base layer changes
     map.on('zoomend', updateLabelSizes);
     map.on('baselayerchange', updateLabelSizes);
+    map.on('overlayadd', updateLabelSizes);
+
+    // --- Load Counties (as overlay in countiesGroup) ---
+    // Simple gray outlines, no fill
+    let countiesGeoJson;
+    function styleCounties() {
+      return { color: '#6b7280', weight: 1, fillOpacity: 0, dashArray: '3' };
+    }
+
+    fetch('https://pastorplt.github.io/tbc_map/tbc_counties.geojson', { cache: 'no-cache' })
+      .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })
+      .then(data => {
+        countiesGeoJson = L.geoJSON(data, { style: styleCounties });
+        countiesGeoJson.addTo(countiesGroup);
+
+        // Expand map bounds if counties extend beyond networks
+        const b = countiesGeoJson.getBounds();
+        if (b.isValid()) {
+          const current = map.getBounds();
+          const union = current.isValid() ? current.extend(b) : b;
+          map.fitBounds(union.pad(0.05));
+        }
+      })
+      .catch(err => console.error('Failed to load Counties GeoJSON:', err));
   </script>
 </body>
 </html>
