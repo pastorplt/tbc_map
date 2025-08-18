@@ -13,7 +13,7 @@
     html, body, #map { height: 100%; margin: 0; }
     .leaflet-interactive { cursor: pointer; }
 
-    /* Map title (absolute, centered, fixed size) */
+    /* Map title */
     .map-title {
       position: absolute;
       top: 10px;
@@ -41,7 +41,7 @@
       color: #111;
     }
 
-    /* Permanent polygon labels (Networks) */
+    /* Permanent polygon labels */
     .poly-label {
       background: transparent;
       border: 0;
@@ -234,7 +234,7 @@
 
     // --- Load Counties ---
     function styleCounties() {
-      return { color: '#6b7280', weight: 1, fillColor: '#d1d5db', fillOpacity: 0.4 };
+      return { color: '#b59f3b', weight: 1, fillColor: '#fff9c4', fillOpacity: 0.5 };
     }
     fetch('https://pastorplt.github.io/tbc_map/tbc_counties.geojson', { cache: 'no-cache' })
       .then(res => res.json())
