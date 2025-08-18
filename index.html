@@ -64,6 +64,13 @@
       object-fit: cover; aspect-ratio: 4 / 3;
     }
     hr { border:0; border-top:1px solid #e9ecef; margin:8px 0; }
+
+    /* Custom heading in layer control */
+    .leaflet-control-layers .basemap-heading {
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -85,12 +92,25 @@
     const osmStandard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 20, attribution: '&copy; OpenStreetMap contributors'
     });
+
+    // Renamed basemap labels
     const baseMaps = {
-      'Esri World Gray Canvas': esriGray,
-      'CartoDB Positron': cartoPositron,
-      'OpenStreetMap': osmStandard
+      'light': esriGray,
+      'medium': cartoPositron,
+      'full': osmStandard
     };
-    L.control.layers(baseMaps, null, { position: 'topright', collapsed: false }).addTo(map);
+
+    const layerControl = L.control.layers(baseMaps, null, { position: 'topright', collapsed: false }).addTo(map);
+
+    // Add "Basemap" heading at the top of the control
+    const controlContainer = layerControl.getContainer();
+    const baseLayersList = controlContainer.querySelector('.leaflet-control-layers-base');
+    if (baseLayersList) {
+      const heading = document.createElement('label');
+      heading.textContent = 'Basemap';
+      heading.className = 'basemap-heading';
+      baseLayersList.prepend(heading);
+    }
 
     // Color palette (30 colors)
     const palette30 = [
