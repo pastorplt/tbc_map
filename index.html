@@ -4,190 +4,238 @@
   <meta charset="utf-8" />
   <title>TBC Networks Map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    crossorigin=""
-  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <style>
     html, body, #map { height: 100%; margin: 0; }
+    .leaflet-interactive { cursor: pointer; }
 
-    /* Map title */
+    /* Title (fixed 40px) */
     .map-title {
-      font: 40px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      font-weight: 700;
-      color: #111;
-      text-align: center;
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      z-index: 1000;
+      font: 40px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      font-weight: 800; color: #111; text-align: center;
       background: rgba(255,255,255,0.9);
-      padding: 6px 12px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      padding: 14px 25px; border-radius: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      pointer-events: none;
     }
 
-    .leaflet-interactive { cursor: pointer; }
+    /* Tooltips / popups */
     .tip { font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     .tip .label { color:#666; }
     .tip-name { font-size: 15px; font-weight: 600; margin-bottom: 2px; color: #111; }
+
+    /* Permanent polygon labels */
     .poly-label {
       background: transparent; border: 0; box-shadow: none;
-      color: #1f2937; font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      text-align: center; white-space: nowrap;
+      color: #1f2937;
+      font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      text-align: center; white-space: nowrap; line-height: 1.15;
       text-shadow: 0 1px 2px rgba(255,255,255,.85), 0 0 2px rgba(255,255,255,.9);
-      pointer-events: none; line-height: 1.15;
+      pointer-events: none;
     }
+
+    /* Hover tooltip styled like a mini popup */
     .leaflet-tooltip.hover-tip {
-      background: #fff; color: #111; border: 1px solid #e5e7eb;
-      border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.12);
+      background: #fff; color: #111;
+      border: 1px solid #e5e7eb; border-radius: 10px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.12);
       padding: 8px 10px;
     }
     .leaflet-tooltip.hover-tip:before { display: none; }
-    .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-top: 8px; }
+
+    /* Photo grid */
+    .gallery {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 8px; margin-top: 8px;
+    }
     .gallery a { display:block; border-radius:8px; overflow:hidden; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
     .gallery img { display:block; width:100%; height:100%; object-fit: cover; aspect-ratio: 4 / 3; }
     hr { border:0; border-top:1px solid #e9ecef; margin:8px 0; }
+
+    /* Headings in layer control */
     .leaflet-control-layers .basemap-heading,
-    .leaflet-control-layers .overlays-heading { font-weight: 600; margin-bottom: 4px; display: block; }
+    .leaflet-control-layers .overlays-heading {
+      font-weight: 600; margin-bottom: 4px; display: block;
+    }
   </style>
 </head>
 <body>
-  <div id="map"></div>
+  <div id="map">
+    <div class="map-title">TBC Networks</div>
+  </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://unpkg.com/leaflet-providers@1.13.0/leaflet-providers.js"></script>
   <script>
+    // --- Map ---
     const map = L.map('map', { center: [37.8, -122.3], zoom: 9, preferCanvas: true });
 
-    // --- Add map title control ---
-    const titleDiv = L.DomUtil.create('div', 'map-title');
-    titleDiv.innerHTML = "TBC Networks";
-    document.querySelector('#map').appendChild(titleDiv);
-    titleDiv.style.position = "absolute";
-    titleDiv.style.top = "10px";
-    titleDiv.style.left = "50%";
-    titleDiv.style.transform = "translateX(-50%)";
-    titleDiv.style.zIndex = 1000;
-
     // ------------------------------
-    // Basemaps (all 15, grouped for easy commenting)
+    // Basemaps (all 15 — comment out any you don't want)
     // ------------------------------
     const baseMaps = {
       // --- Minimal & Light ---
       "Carto Light (Positron)":   L.tileLayer.provider('CartoDB.Positron'),
-      "Esri World Gray Canvas":  L.tileLayer.provider('Esri.WorldGrayCanvas'),
-      "Stamen Toner Lite":       L.tileLayer.provider('Stamen.TonerLite'),
+      "Esri World Gray Canvas":   L.tileLayer.provider('Esri.WorldGrayCanvas'),
+      "Stamen Toner Lite":        L.tileLayer.provider('Stamen.TonerLite'),
 
-      // --- Medium Contrast / General Reference ---
-      "OpenStreetMap Standard":  L.tileLayer.provider('OpenStreetMap.Mapnik'),
-      "Carto Voyager":           L.tileLayer.provider('CartoDB.Voyager'),
-      "Esri World Street Map":   L.tileLayer.provider('Esri.WorldStreetMap'),
-      "OpenTopoMap":             L.tileLayer.provider('OpenTopoMap'),
+      // --- Medium / Reference ---
+      "OpenStreetMap Standard":   L.tileLayer.provider('OpenStreetMap.Mapnik'),
+      "Carto Voyager":            L.tileLayer.provider('CartoDB.Voyager'),
+      "Esri World Street Map":    L.tileLayer.provider('Esri.WorldStreetMap'),
+      "OpenTopoMap":              L.tileLayer.provider('OpenTopoMap'),
 
-      // --- Dark / Contrast Options ---
-      "Carto Dark Matter":       L.tileLayer.provider('CartoDB.DarkMatter'),
-      "Stamen Toner (Dark B/W)": L.tileLayer.provider('Stamen.Toner'),
+      // --- Dark / High Contrast ---
+      "Carto Dark Matter":        L.tileLayer.provider('CartoDB.DarkMatter'),
+      "Stamen Toner (Dark B/W)":  L.tileLayer.provider('Stamen.Toner'),
 
       // --- Satellite / Aerial ---
-      "Esri World Imagery":      L.tileLayer.provider('Esri.WorldImagery'),
-      "USGS US Topo":            L.tileLayer.provider('USGS.USTopo'),
+      "Esri World Imagery":       L.tileLayer.provider('Esri.WorldImagery'),
+      "USGS US Topo":             L.tileLayer.provider('USGS.USTopo'),
 
       // --- Hybrid / Specialty ---
-      "Esri NatGeo World Map":   L.tileLayer.provider('Esri.NatGeoWorldMap'),
-      "Stamen Watercolor":       L.tileLayer.provider('Stamen.Watercolor'),
-
-      "Hike & Bike":             L.tileLayer.provider('HikeBike.HikeBike'),
-      "Wikimedia":               L.tileLayer.provider('Wikimedia')
+      "Esri NatGeo World Map":    L.tileLayer.provider('Esri.NatGeoWorldMap'),
+      "Stamen Watercolor":        L.tileLayer.provider('Stamen.Watercolor'),
+      "Hike & Bike":              L.tileLayer.provider('HikeBike.HikeBike'),
+      "Wikimedia":                L.tileLayer.provider('Wikimedia')
     };
 
-    // Set default basemap
+    // Default basemap
     baseMaps["Esri World Gray Canvas"].addTo(map);
 
     // ------------------------------
-    // Overlay layers (Networks & Counties)
+    // Overlays (Networks & Counties)
     // ------------------------------
-    const networksLayer = L.layerGroup().addTo(map);
-    const countiesLayer = L.layerGroup().addTo(map);
+    const networksGroup = L.layerGroup().addTo(map);
+    const countiesGroup = L.layerGroup().addTo(map);
 
-    // Fetch Networks GeoJSON
-    fetch("https://tbc-networks.onrender.com/networks.geojson")
-      .then(r => r.json())
+    // Layer control (basemaps + overlays)
+    const layerControl = L.control.layers(baseMaps, {
+      "Networks": networksGroup,
+      "Counties": countiesGroup
+    }, { position: 'topright', collapsed: false }).addTo(map);
+
+    // Add headings inside control
+    const controlEl = layerControl.getContainer();
+    const baseList = controlEl.querySelector('.leaflet-control-layers-base');
+    if (baseList) {
+      const h = document.createElement('div'); h.className = 'basemap-heading'; h.textContent = 'Basemap';
+      baseList.prepend(h);
+    }
+    const overlayList = controlEl.querySelector('.leaflet-control-layers-overlays');
+    if (overlayList) {
+      const h = document.createElement('div'); h.className = 'overlays-heading'; h.textContent = 'Layers';
+      overlayList.prepend(h);
+    }
+
+    // ------------------------------
+    // Networks (30-color palette, permanent labels, hover/popup, email)
+    // ------------------------------
+    const palette30 = [
+      '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
+      '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf',
+      '#393b79','#637939','#8c6d31','#843c39','#7b4173',
+      '#3182bd','#31a354','#756bb1','#636363','#e6550d',
+      '#9edae5','#c7c7c7','#bc80bd','#ffed6f','#a6cee3',
+      '#b2df8a','#fb9a99','#fdbf6f','#cab2d6','#6a3d9a'
+    ];
+    function hashIndex(str, m) { let h = 0; for (let i=0;i<str.length;i++) h = (h*31 + str.charCodeAt(i))|0; return Math.abs(h)%m; }
+    function colorForFeature(ft) {
+      const p = ft.properties || {};
+      const key = String(p.id || p.name || JSON.stringify(ft.geometry) || Math.random());
+      return palette30[hashIndex(key, palette30.length)];
+    }
+    function styleNetworks(ft) {
+      return { color: '#333', weight: 1.5, fillColor: colorForFeature(ft), fillOpacity: 0.5 };
+    }
+    function highlight(e){ e.target.setStyle({ weight: 3, color:'#000', fillOpacity: 0.7 }); }
+    function resetHighlight(e){ networksGeoJson && networksGeoJson.resetStyle(e.target); }
+
+    // Clean & stacked name (remove "network(s)"), word-per-line
+    function cleanedName(name){
+      if (!name || typeof name !== 'string') return 'Unnamed';
+      return name.replace(/\bnetworks?\b/gi,'').replace(/\s+/g,' ').trim() || 'Unnamed';
+    }
+    function multilineName(name){ return cleanedName(name).split(/\s+/).filter(Boolean).join('<br>'); }
+
+    function allPhotos(props={}){
+      return [props.photo1,props.photo2,props.photo3,props.photo4,props.photo5,props.photo6]
+        .filter(u => typeof u === 'string' && u.trim());
+    }
+    function infoCardHtml(props={}){
+      const name = cleanedName(props.name);
+      const email = props.contact_email ? `<div><span class="label">Email:</span> <a href="mailto:${props.contact_email}">${props.contact_email}</a></div>` : '';
+      const photos = allPhotos(props);
+      const gallery = photos.length ? `<div class="gallery">${photos.map((p,i)=>`
+        <a href="${p}" target="_blank" rel="noopener">
+          <img src="${p}" alt="Photo ${i+1} of ${name}" loading="lazy" />
+        </a>`).join('')}</div>` : '';
+      return `<div class="tip">
+        <div class="tip-name">${name}</div>
+        <div><span class="label">Leaders:</span> ${props.leaders ?? '—'}</div>
+        ${email}
+        ${gallery ? '<hr/>' + gallery : ''}
+      </div>`;
+    }
+
+    let networksGeoJson;
+
+    fetch('https://tbc-networks.onrender.com/networks.geojson', { cache: 'no-cache' })
+      .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); })
       .then(data => {
-        const colors = [...Array(30).keys()].map(i => `hsl(${(i*12)%360},70%,60%)`);
-        let colorIndex = 0;
-
-        L.geoJSON(data, {
-          style: () => ({
-            color: colors[colorIndex++ % colors.length],
-            weight: 2, fillOpacity: 0.5
-          }),
+        networksGeoJson = L.geoJSON(data, {
+          style: styleNetworks,
           onEachFeature: (feature, layer) => {
-            const props = feature.properties;
-            let labelName = props.name.replace(/Network/i, "").trim().split(" ").join("<br/>");
-
-            // Permanent label
-            layer.bindTooltip(labelName, {
-              permanent: true, direction: "center", className: "poly-label"
+            // Permanent label (does NOT get overwritten)
+            layer.bindTooltip(multilineName(feature.properties?.name), {
+              permanent: true, direction: 'center', className: 'poly-label', opacity: 1
             });
 
-            // Tooltip content
-            let html = `<div class="tip">
-              <div class="tip-name">${props.name}</div>
-              <div class="label"><b>Leaders:</b> ${props.leaders}</div>
-              <div class="label"><b>Email:</b> <a href="mailto:${props.contact_email}">${props.contact_email}</a></div>
-            </div>`;
+            // Hover card (separate tooltip so permanent label remains)
+            layer.on('mouseover', (e) => {
+              highlight(e);
+              const tip = L.tooltip({ className: 'hover-tip', direction: 'top', opacity: 0.95, offset: [0,-8] })
+                .setContent(infoCardHtml(feature.properties))
+                .setLatLng(e.latlng);
+              layer._hoverTip = tip; tip.addTo(map);
+            });
+            layer.on('mousemove', (e) => { if (layer._hoverTip) layer._hoverTip.setLatLng(e.latlng); });
+            layer.on('mouseout', (e) => {
+              resetHighlight(e);
+              if (layer._hoverTip) { map.removeLayer(layer._hoverTip); layer._hoverTip = null; }
+            });
 
-            // Add photos if any
-            const photos = [];
-            for (let i = 1; i <= 6; i++) {
-              if (props[`photo${i}`]) {
-                photos.push(`<a href="${props[`photo${i}`]}" target="_blank"><img src="${props[`photo${i}`]}"/></a>`);
-              }
-            }
-            if (photos.length) {
-              html += `<hr/><div class="gallery">${photos.join("")}</div>`;
-            }
-
-            layer.bindPopup(html);
-            layer.bindTooltip(html, { sticky: true, className: "hover-tip" });
+            // Click popup (with photos)
+            layer.on('click', () => {
+              layer.bindPopup(infoCardHtml(feature.properties), { maxWidth: 480 }).openPopup();
+            });
           }
-        }).addTo(networksLayer);
-      });
+        }).addTo(networksGroup);
 
-    // Fetch Counties GeoJSON
-    fetch("https://pastorplt.github.io/tbc_map/tbc_counties.geojson")
-      .then(r => r.json())
+        const b = networksGeoJson.getBounds();
+        if (b.isValid()) map.fitBounds(b.pad(0.05));
+      })
+      .catch(err => console.error('Networks load error:', err));
+
+    // ------------------------------
+    // Counties (light yellow fill)
+    // ------------------------------
+    function styleCounties(){ return { color:'#b59f3b', weight:1, fillColor:'#fff9c4', fillOpacity:0.5 }; }
+
+    fetch('https://pastorplt.github.io/tbc_map/tbc_counties.geojson', { cache: 'no-cache' })
+      .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); })
       .then(data => {
-        L.geoJSON(data, {
-          style: {
-            color: "#999", weight: 1, fillColor: "#ffffcc", fillOpacity: 0.3
-          }
-        }).addTo(countiesLayer);
-      });
-
-    // ------------------------------
-    // Layer control with headings
-    // ------------------------------
-    const layerControl = L.control.layers(baseMaps, {
-      "Networks": networksLayer,
-      "Counties": countiesLayer
-    }, { collapsed: false }).addTo(map);
-
-    // Add section headings to control
-    const controlEl = layerControl.getContainer();
-    const baseMapsList = controlEl.querySelector(".leaflet-control-layers-base");
-    const overlaysList = controlEl.querySelector(".leaflet-control-layers-overlays");
-
-    if (baseMapsList) {
-      const heading = document.createElement("div");
-      heading.className = "basemap-heading";
-      heading.innerText = "Basemap";
-      baseMapsList.prepend(heading);
-    }
-    if (overlaysList) {
-      const heading = document.createElement("div");
-      heading.className = "overlays-heading";
-      heading.innerText = "Layers";
-      overlaysList.prepend(heading);
-    }
+        const counties = L.geoJSON(data, { style: styleCounties }).addTo(countiesGroup);
+        const b = counties.getBounds();
+        if (b.isValid()) {
+          const current = map.getBounds();
+          const union = current.isValid() ? current.extend(b) : b;
+          map.fitBounds(union.pad(0.05));
+        }
+      })
+      .catch(err => console.error('Counties load error:', err));
   </script>
 </body>
 </html>
