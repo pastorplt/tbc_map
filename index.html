@@ -9,7 +9,7 @@
     html, body { height: 100%; margin: 0; }
     #map { height: 100%; }
 
-    /* Title (fixed 40px) */
+    /* Title */
     .map-title {
       position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
       z-index: 1000;
@@ -26,7 +26,7 @@
     /* ===========================
        Legend
        - Desktop: left panel
-       - Mobile: bottom sheet
+       - Mobile: bottom sheet (button toggled only)
        =========================== */
     .legend-panel {
       position: absolute;
@@ -41,37 +41,25 @@
       padding: 10px;
       font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     }
-    .legend-header {
-      display: none; /* only used on mobile bottom sheet */
-    }
-    .legend-title {
-      font-weight: 700; font-size: 14px; margin: 4px 0 8px; color: #111;
-    }
+    .legend-header { display: none; } /* only used on mobile bottom sheet */
+    .legend-title { font-weight: 700; font-size: 14px; margin: 4px 0 8px; color: #111; }
 
-    /* County groups (accordion using <details>) */
+    /* County groups (accordion) */
     .county-group { margin-bottom: 6px; border-radius: 8px; }
     .county-group summary {
-      list-style: none;
-      cursor: pointer;
-      padding: 8px 10px;
-      border-radius: 8px;
+      list-style: none; cursor: pointer;
+      padding: 8px 10px; border-radius: 8px;
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
-      background: #f8fafc;
-      border: 1px solid #e5e7eb;
-      position: sticky; top: 0;
+      background: #f8fafc; border: 1px solid #e5e7eb; position: sticky; top: 0;
     }
     .county-name { font-weight: 600; color: #111; }
-    .county-count {
-      font-size: 12px; color: #374151; background: #e5e7eb; border-radius: 999px;
-      padding: 2px 8px;
-    }
+    .county-count { font-size: 12px; color: #374151; background: #e5e7eb; border-radius: 999px; padding: 2px 8px; }
     .county-group[open] summary { background: #eef2ff; }
 
     .legend-list { list-style: none; padding: 6px 0 0; margin: 0; position: relative; }
     .legend-item {
       display: flex; align-items: center; gap: 10px;
-      padding: 6px 8px; border-radius: 8px;
-      cursor: pointer;
+      padding: 6px 8px; border-radius: 8px; cursor: pointer;
     }
     .legend-item:hover { background: #f3f4f6; }
     .swatch {
@@ -83,15 +71,9 @@
 
     /* Legend popup (same visual language as map card) */
     .legend-popup {
-      position: absolute;
-      left: 8px;
-      right: 8px;
-      z-index: 5;
-      background: #fff;
-      color: #111;
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
-      box-shadow: 0 4px 14px rgba(0,0,0,.12);
+      position: absolute; left: 8px; right: 8px; z-index: 5;
+      background: #fff; color: #111; border: 1px solid #e5e7eb;
+      border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.12);
       padding: 10px 12px 12px;
     }
     .legend-popup .close {
@@ -102,38 +84,34 @@
     .legend-popup .close:hover { color: #111; }
 
     /* Mobile FAB to open legend */
-    .legend-toggle {
-      display: none;
-    }
+    .legend-toggle { display: none; }
 
     /* ---------------------------
        Mobile styles (<768px)
        --------------------------- */
     @media (max-width: 767.98px) {
-      /* Make legend a bottom sheet */
+      /* Smaller title on mobile */
+      .map-title {
+        font-size: 22px;      /* was 40px */
+        padding: 10px 16px;
+        border-radius: 14px;
+      }
+
+      /* Bottom sheet (button toggled only; no drag) */
       .legend-panel {
-        position: fixed;
-        left: 0; right: 0; bottom: 0; top: auto;
+        position: fixed; left: 0; right: 0; bottom: 0; top: auto;
         width: auto; max-height: 70vh;
-        border-radius: 12px 12px 0 0;
-        padding: 8px 10px 12px;
-        /* Start collapsed: only header visible (44px) */
-        transform: translateY(calc(100% - 44px));
+        border-radius: 12px 12px 0 0; padding: 8px 10px 12px;
+        transform: translateY(calc(100% - 44px)); /* closed: show header (~44px) */
         transition: transform 220ms ease;
         border-left: 0; border-right: 0;
-        will-change: transform;
       }
-      .legend-panel.open {
-        transform: translateY(0);
-      }
-      /* Show header (grab/close area) inside sheet */
+      .legend-panel.open { transform: translateY(0); }
+
       .legend-header {
         display: flex; align-items: center; justify-content: space-between;
-        gap: 8px; padding: 6px 2px 8px;
-        position: sticky; top: 0; background: rgba(255,255,255,0.95);
-        z-index: 2;
-        /* Prevent the page from scrolling while dragging the header */
-        touch-action: none;
+        gap: 8px; padding: 6px 2px 8px; position: sticky; top: 0;
+        background: rgba(255,255,255,0.95); z-index: 2;
       }
       .legend-grabber {
         width: 40px; height: 4px; border-radius: 2px;
@@ -160,7 +138,7 @@
       .legend-toggle:active { transform: translateY(1px); }
     }
 
-    /* Popup / tooltip content shared */
+    /* Shared popup content */
     .tip { font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     .tip .label { color:#666; }
     .tip-name { font-size: 15px; font-weight: 600; margin-bottom: 2px; color: #111; }
@@ -175,7 +153,7 @@
       pointer-events: none;
     }
 
-    /* Hover tooltip styled like a mini popup (map only) */
+    /* Map hover tooltip */
     .leaflet-tooltip.hover-tip {
       background: #fff; color: #111;
       border: 1px solid #e5e7eb; border-radius: 10px;
@@ -193,7 +171,7 @@
     .gallery img { display:block; width:100%; height:100%; object-fit: cover; aspect-ratio: 4 / 3; }
     hr { border:0; border-top:1px solid #e9ecef; margin:8px 0; }
 
-    /* Headings in layer control */
+    /* Layer control headings */
     .leaflet-control-layers .basemap-heading,
     .leaflet-control-layers .overlays-heading {
       font-weight: 600; margin-bottom: 4px; display: block;
@@ -211,8 +189,8 @@
 
     <!-- Legend panel (desktop left panel / mobile bottom sheet) -->
     <aside class="legend-panel" id="legendPanel" aria-label="Networks legend">
-      <!-- Mobile-only header with grabber + close -->
-      <div class="legend-header" id="legendHeader">
+      <!-- Mobile-only header -->
+      <div class="legend-header">
         <div class="legend-grabber" aria-hidden="true"></div>
         <div class="legend-title">Networks by County</div>
         <button class="legend-close-btn" type="button" id="legendClose">Close</button>
@@ -308,7 +286,6 @@
 
     // Legend state & helpers
     const legendPanel = document.getElementById('legendPanel');
-    const legendHeader = document.getElementById('legendHeader');
     const legendGroupsEl = document.getElementById('legendGroups');
     const legendToggle = document.getElementById('legendToggle');
     const legendClose = document.getElementById('legendClose');
@@ -319,133 +296,35 @@
 
     function openLegend() {
       legendPanel.classList.add('open');
-      legendPanel.style.transform = 'translateY(0px)';
+      if (isMobile()) legendPanel.style.transform = 'translateY(0)';
       if (legendToggle) legendToggle.setAttribute('aria-expanded', 'true');
     }
     function closeLegend() {
-      const closedOffset = getClosedOffset(); // px
       legendPanel.classList.remove('open');
-      legendPanel.style.transform = `translateY(${closedOffset}px)`;
+      if (isMobile()) legendPanel.style.transform = 'translateY(calc(100% - 44px))';
       if (legendToggle) legendToggle.setAttribute('aria-expanded', 'false');
     }
-
-    // Compute how far down the closed sheet sits (px)
-    function getClosedOffset() {
-      // Show 44px header when closed
-      const panelHeight = legendPanel.getBoundingClientRect().height;
-      const headerHeight = 44;
-      return Math.max(0, panelHeight - headerHeight);
-    }
-
-    // Initialize position on load/resize (mobile only)
+    // Init bottom-sheet position on load & resize (mobile only)
     function initSheetPosition() {
-      if (!isMobile()) {
-        // Desktop: reset transforms
-        legendPanel.style.transform = '';
-        return;
-      }
-      if (legendPanel.classList.contains('open')) {
-        legendPanel.style.transform = 'translateY(0px)';
+      if (isMobile()) {
+        if (legendPanel.classList.contains('open')) {
+          legendPanel.style.transform = 'translateY(0)';
+        } else {
+          legendPanel.style.transform = 'translateY(calc(100% - 44px))';
+        }
       } else {
-        legendPanel.style.transform = `translateY(${getClosedOffset()}px)`;
+        legendPanel.style.transform = '';
       }
     }
+    window.addEventListener('resize', initSheetPosition);
+    initSheetPosition();
 
-    // Mobile toggles
+    // Button toggles
     if (legendToggle) legendToggle.addEventListener('click', () => {
       const isOpen = legendPanel.classList.contains('open');
       isOpen ? closeLegend() : openLegend();
     });
     if (legendClose) legendClose.addEventListener('click', closeLegend);
-
-    // Drag-to-open/close for bottom sheet (mobile)
-    let drag = {
-      active: false,
-      startY: 0,
-      startOffset: 0,
-      lastY: 0,
-      lastTime: 0
-    };
-
-    function onDragStart(ev) {
-      if (!isMobile()) return;
-      drag.active = true;
-      drag.startY = (ev.touches ? ev.touches[0].clientY : ev.clientY);
-      drag.lastY = drag.startY;
-      drag.lastTime = performance.now();
-      // Current translateY in px
-      const matrix = window.getComputedStyle(legendPanel).transform;
-      let currentY = 0;
-      if (matrix && matrix !== 'none') {
-        const values = matrix.match(/matrix.*\((.+)\)/)[1].split(', ');
-        currentY = parseFloat(values[5]) || 0;
-      }
-      drag.startOffset = currentY;
-      // Disable transition during drag
-      legendPanel.style.transition = 'none';
-      // Prevent text selection / scroll hijack
-      document.body.style.userSelect = 'none';
-    }
-
-    function onDragMove(ev) {
-      if (!drag.active || !isMobile()) return;
-      const y = (ev.touches ? ev.touches[0].clientY : ev.clientY);
-      const dy = y - drag.startY;
-      const closedOffset = getClosedOffset();
-
-      // Proposed offset
-      let newOffset = drag.startOffset + dy;
-      newOffset = Math.max(0, Math.min(closedOffset, newOffset)); // clamp between open (0) and closed
-
-      legendPanel.style.transform = `translateY(${newOffset}px)`;
-
-      // track for velocity
-      drag.lastY = y;
-      drag.lastTime = performance.now();
-    }
-
-    function onDragEnd(ev) {
-      if (!drag.active || !isMobile()) return;
-      drag.active = false;
-      // Re-enable transition
-      legendPanel.style.transition = '';
-
-      const matrix = window.getComputedStyle(legendPanel).transform;
-      let currentY = 0;
-      if (matrix && matrix !== 'none') {
-        const values = matrix.match(/matrix.*\((.+)\)/)[1].split(', ');
-        currentY = parseFloat(values[5]) || 0;
-      }
-      const closedOffset = getClosedOffset();
-
-      // Decide snap: threshold + (basic) velocity
-      const threshold = closedOffset * 0.33; // 1/3rd of travel
-      const shouldClose = currentY > threshold;
-
-      if (shouldClose) {
-        closeLegend();
-      } else {
-        openLegend();
-      }
-      // cleanup
-      document.body.style.userSelect = '';
-    }
-
-    // Bind drag handlers to the header area (only on mobile)
-    ['touchstart', 'mousedown'].forEach(evt =>
-      legendHeader.addEventListener(evt, onDragStart, { passive: true })
-    );
-    ['touchmove', 'mousemove'].forEach(evt =>
-      window.addEventListener(evt, onDragMove, { passive: true })
-    );
-    ['touchend', 'mouseup', 'touchcancel', 'mouseleave'].forEach(evt =>
-      window.addEventListener(evt, onDragEnd, { passive: true })
-    );
-
-    // Re-init sheet position on resize/orientation
-    window.addEventListener('resize', initSheetPosition);
-    // Set initial position
-    initSheetPosition();
 
     // Reposition legend popup (used both desktop and mobile)
     function repositionLegendPopup() {
@@ -552,6 +431,7 @@
         return a.localeCompare(b, undefined, { sensitivity: 'base' });
       });
 
+      const legendGroupsEl = document.getElementById('legendGroups');
       legendGroupsEl.innerHTML = '';
       counties.forEach((county, cIdx) => {
         // Sort networks A→Z within county
@@ -589,7 +469,7 @@
 
           // Click: open popup card under this li (no map zoom)
           li.addEventListener('click', (e) => {
-            e.stopPropagation(); // don't toggle the <details>
+            e.stopPropagation(); // don't toggle <details>
             const html = infoCardHtml(item.props);
             showLegendPopup(li, html);
           });
