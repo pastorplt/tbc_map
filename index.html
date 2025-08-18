@@ -218,7 +218,7 @@
     const titleEl = document.getElementById('mapTitle');
     function fontSizeForZoomTitle(z) {
       // Scale between 18px (zoom 6) and 30px (zoom 18)
-      const minZ = 6, maxZ = 18, minPx = 18, maxPx = 30;
+      const minZ = 6, maxZ = 18, minPx = 30, maxPx = 50;
       const clamped = Math.max(minZ, Math.min(maxZ, z));
       const t = (clamped - minZ) / (maxZ - minZ);
       return Math.round(minPx + t * (maxPx - minPx));
