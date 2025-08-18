@@ -13,22 +13,22 @@
     html, body, #map { height: 100%; margin: 0; }
     .leaflet-interactive { cursor: pointer; }
 
-    /* Map title (absolute, centered) */
+    /* Map title (absolute, centered, fixed size) */
     .map-title {
       position: absolute;
       top: 10px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 1000;
-      font: 24px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; /* JS will resize */
+      font: 50px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       font-weight: 800;
       color: #111;
       text-align: center;
       background: rgba(255,255,255,0.9);
-      padding: 6px 12px;
-      border-radius: 10px;
+      padding: 14px 25px;
+      border-radius: 20px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      pointer-events: none; /* don't block map interaction */
+      pointer-events: none;
     }
 
     /* Shared card/tip styles */
@@ -47,9 +47,9 @@
       border: 0;
       box-shadow: none;
       color: #1f2937;
-      font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; /* JS will resize */
+      font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       text-align: center;
-      white-space: nowrap; /* words broken with <br> already */
+      white-space: nowrap;
       text-shadow: 0 1px 2px rgba(255,255,255,.85), 0 0 2px rgba(255,255,255,.9);
       pointer-events: none;
       line-height: 1.15;
@@ -94,7 +94,7 @@
 </head>
 <body>
   <div id="map">
-    <!-- Zoom-responsive page title -->
+    <!-- Fixed title -->
     <div id="mapTitle" class="map-title">TBC Networks</div>
   </div>
 
@@ -118,7 +118,6 @@
       maxZoom: 20, attribution: '&copy; OpenStreetMap contributors'
     });
 
-    // Renamed labels and headings
     const baseMaps = { 'light': esriGray, 'medium': cartoPositron, 'full': osmStandard };
 
     // Overlay groups
@@ -149,7 +148,7 @@
       overlaysList.prepend(heading);
     }
 
-    // --- Styling & helpers for Networks ---
+    // --- Networks palette & helpers ---
     const palette30 = [
       '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
       '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf',
@@ -200,44 +199,12 @@
         </div>`;
     }
 
-    // Permanent label options + dynamic sizing
     const labelOptions = { permanent: true, direction: 'center', className: 'poly-label', opacity: 1 };
-    function fontSizeForZoomLabels(z) {
-      // 10px at low zoom, up to 20px at high zoom
-      return Math.max(10, Math.min(20, Math.round(8 + (z * 0.7))));
-    }
-    function updateLabelSizes() {
-      const px = fontSizeForZoomLabels(map.getZoom());
-      document.querySelectorAll('.poly-label').forEach(el => {
-        el.style.fontSize = px + 'px';
-        el.style.lineHeight = '1.15';
-      });
-    }
-
-    // --- Zoom-responsive Title ---
-    const titleEl = document.getElementById('mapTitle');
-    function fontSizeForZoomTitle(z) {
-      // Scale between 18px (zoom 6) and 30px (zoom 18)
-      const minZ = 6, maxZ = 18, minPx = 30, maxPx = 50;
-      const clamped = Math.max(minZ, Math.min(maxZ, z));
-      const t = (clamped - minZ) / (maxZ - minZ);
-      return Math.round(minPx + t * (maxPx - minPx));
-    }
-    function updateTitleSize() {
-      const px = fontSizeForZoomTitle(map.getZoom());
-      titleEl.style.fontSize = px + 'px';
-      // Subtle padding scale for nicer look
-      titleEl.style.padding = (px * 0.28).toFixed(0) + 'px ' + (px * 0.5).toFixed(0) + 'px';
-      titleEl.style.borderRadius = Math.max(8, Math.round(px * 0.4)) + 'px';
-    }
 
     // --- Load Networks ---
     let networksGeoJson;
     function onEachNetwork(feature, layer) {
-      // Permanent stacked-name label
       layer.bindTooltip(multilineName(feature.properties?.name), labelOptions);
-
-      // Hover tooltip (card look, no photos)
       layer.on('mouseover', (e) => {
         highlight(e);
         const tip = L.tooltip({ className: 'hover-tip', direction: 'top', opacity: 0.95, offset: [0, -8] })
@@ -250,8 +217,6 @@
         resetHighlight(e);
         if (layer._hoverTip) { map.removeLayer(layer._hoverTip); layer._hoverTip = null; }
       });
-
-      // Click popup (includes gallery)
       layer.on('click', () => {
         layer.bindPopup(infoCardHtml(feature.properties), { maxWidth: 480 }).openPopup();
       });
@@ -264,25 +229,17 @@
         networksGeoJson.addTo(networksGroup);
         const b = networksGeoJson.getBounds();
         if (b.isValid()) map.fitBounds(b.pad(0.05));
-        // Initialize sizes once labels are in DOM
-        setTimeout(() => { updateLabelSizes(); updateTitleSize(); }, 0);
       })
       .catch(err => console.error('Failed to load Networks GeoJSON:', err));
 
-    // Update sizes on zoom or layer changes
-    map.on('zoomend', () => { updateLabelSizes(); updateTitleSize(); });
-    map.on('baselayerchange', () => { updateLabelSizes(); updateTitleSize(); });
-    map.on('overlayadd', updateLabelSizes);
-
     // --- Load Counties ---
-    let countiesGeoJson;
     function styleCounties() {
       return { color: '#6b7280', weight: 1, fillColor: '#d1d5db', fillOpacity: 0.4 };
     }
     fetch('https://pastorplt.github.io/tbc_map/tbc_counties.geojson', { cache: 'no-cache' })
       .then(res => res.json())
       .then(data => {
-        countiesGeoJson = L.geoJSON(data, { style: styleCounties });
+        const countiesGeoJson = L.geoJSON(data, { style: styleCounties });
         countiesGeoJson.addTo(countiesGroup);
         const b = countiesGeoJson.getBounds();
         if (b.isValid()) {
