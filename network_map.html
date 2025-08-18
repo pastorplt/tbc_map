@@ -7,11 +7,31 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <style>
     html, body { height: 100%; margin: 0; }
-    #map { height: 100%; }
+
+    /* Leave room for the persistent header (60px) */
+    #map { height: calc(100% - 60px); }
+
+    /* ====== NAV BAR ====== */
+    header {
+      background-color: #003366;
+      padding: 1rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+    }
+    nav a {
+      color: white;
+      margin-right: 1.5rem;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
 
     /* Title */
     .map-title {
-      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
       z-index: 1000;
       font: 40px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       font-weight: 800; color: #111; text-align: center;
@@ -48,7 +68,7 @@
     }
 
     /* IMPORTANT: keep header hidden on desktop */
-    .legend-header { display: none; }  /* ← was 'display: false' before */
+    .legend-header { display: none; }
 
     .legend-title { font-weight: 700; font-size: 14px; margin: 4px 0 8px; color: #111; }
 
@@ -202,6 +222,15 @@
   </style>
 </head>
 <body>
+  <!-- Persistent header / nav -->
+  <header>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="network_map.html">TBC Networks</a>
+      <a href="https://tbccities.fillout.com/touchpoint" target="_blank" rel="noopener">TBC Touchpoint</a>
+    </nav>
+  </header>
+
   <div id="map">
     <div class="map-title">TBC Networks</div>
 
@@ -231,7 +260,7 @@
     // --- Map ---
     const map = L.map('map', { center: [37.8, -122.3], zoom: 9, preferCanvas: true });
 
-    // --- Basemaps (your four, relabeled) ---
+    // --- Basemaps ---
     const esriGray = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
       { maxZoom: 20, attribution: 'Tiles &copy; Esri' }
@@ -368,7 +397,7 @@
       if (!legendPopupEl || !legendPopupAnchorEl) return;
       const panelRect = legendPanel.getBoundingClientRect();
       const aRect = legendPopupAnchorEl.getBoundingClientRect();
-      const relativeTop = (aRect.top - panelRect.top) + legendPanel.scrollTop + anchorEl.offsetHeight + 6;
+      const relativeTop = (aRect.top - panelRect.top) + legendPanel.scrollTop + legendPopupAnchorEl.offsetHeight + 6;
       legendPopupEl.style.top = relativeTop + 'px';
     }
     legendPanel.addEventListener('scroll', repositionLegendPopup);
