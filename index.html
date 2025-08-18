@@ -67,61 +67,122 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="https://unpkg.com/leaflet-providers@1.13.0/leaflet-providers.js"></script>
   <script>
     // --- Map ---
     const map = L.map('map', { center: [37.8, -122.3], zoom: 9, preferCanvas: true });
 
-    // ------------------------------
-    // Basemaps (all 15 labels; we only add those providers that actually exist)
-    // ------------------------------
-    const providerList = [
-      // Minimal & Light
-      ['Carto Light (Positron)', 'CartoDB.Positron'],
-      ['Esri World Gray Canvas', 'Esri.WorldGrayCanvas'],
-      ['Stamen Toner Lite', 'Stamen.TonerLite'],
-      // Medium / Reference
-      ['OpenStreetMap Standard', 'OpenStreetMap.Mapnik'],
-      ['Carto Voyager', 'CartoDB.Voyager'],
-      ['Esri World Street Map', 'Esri.WorldStreetMap'],
-      ['OpenTopoMap', 'OpenTopoMap'],
-      // Dark / High Contrast
-      ['Carto Dark Matter', 'CartoDB.DarkMatter'],
-      ['Stamen Toner (Dark B/W)', 'Stamen.Toner'],
-      // Satellite / Aerial
-      ['Esri World Imagery', 'Esri.WorldImagery'],
-      ['USGS US Topo', 'USGS.USTopo'],
-      // Hybrid / Specialty
-      ['Esri NatGeo World Map', 'Esri.NatGeoWorldMap'],
-      ['Stamen Watercolor', 'Stamen.Watercolor'],
-      ['Hike & Bike', 'HikeBike.HikeBike'],
-      ['Wikimedia', 'Wikimedia'] // may not exist; we handle it gracefully
-    ];
+    // ============================================================
+    // BASEMAPS (15) — Comment out any entries you don't want
+    // ============================================================
+    // Minimal & Light
+    const cartoPositron = L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      { maxZoom: 20, subdomains: 'abcd',
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO' }
+    );
+    const esriGray = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 20, attribution: 'Tiles &copy; Esri' }
+    );
+    const stamenTonerLite = L.tileLayer(
+      'https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.png',
+      { maxZoom: 20, attribution: 'Map tiles by Stamen Design; Data &copy; OpenStreetMap' }
+    );
 
-    function providerExists(id) {
-      return !!(L.TileLayer && L.TileLayer.Provider && L.TileLayer.Provider.providers && L.TileLayer.Provider.providers[id]);
-    }
+    // Medium / Reference
+    const osmStandard = L.tileLayer(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { maxZoom: 20, attribution: '&copy; OpenStreetMap contributors' }
+    );
+    const cartoVoyager = L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      { maxZoom: 20, subdomains: 'abcd',
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO' }
+    );
+    const esriWorldStreet = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 20, attribution: 'Tiles &copy; Esri' }
+    );
+    const openTopoMap = L.tileLayer(
+      'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+      { maxZoom: 17, subdomains: 'abc',
+        attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap' }
+    );
 
-    const baseMaps = {};
-    providerList.forEach(([label, id]) => {
-      if (providerExists(id)) {
-        baseMaps[label] = L.tileLayer.provider(id);
-      } else {
-        console.warn('Skipping missing provider:', id);
-      }
-    });
+    // Dark / High Contrast
+    const cartoDarkMatter = L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      { maxZoom: 20, subdomains: 'abcd',
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO' }
+    );
+    const stamenToner = L.tileLayer(
+      'https://stamen-tiles.a.ssl.fastly.net/toner/{z}/{x}/{y}.png',
+      { maxZoom: 20, attribution: 'Map tiles by Stamen Design; Data &copy; OpenStreetMap' }
+    );
 
-    // Default basemap: prefer Esri World Gray Canvas; otherwise first available
-    if (baseMaps['Esri World Gray Canvas']) {
-      baseMaps['Esri World Gray Canvas'].addTo(map);
-    } else {
-      const first = Object.values(baseMaps)[0];
-      if (first) first.addTo(map);
-    }
+    // Satellite / Aerial
+    const esriWorldImagery = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 20, attribution: 'Source: Esri, Maxar, Earthstar Geographics, etc.' }
+    );
+    const usgsUsTopo = L.tileLayer(
+      'https://basemap.nationalmap.gov/ArcGIS/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 20, attribution: 'Tiles courtesy of the U.S. Geological Survey' }
+    );
 
-    // ------------------------------
+    // Hybrid / Specialty
+    const esriNatGeo = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 16, attribution: 'Tiles &copy; Esri — National Geographic' }
+    );
+    const stamenWatercolor = L.tileLayer(
+      'https://stamen-tiles.a.ssl.fastly.net/watercolor/{z}/{x}/{y}.jpg',
+      { maxZoom: 16, attribution: 'Map tiles by Stamen Design; Data &copy; OpenStreetMap' }
+    );
+    const osmHOT = L.tileLayer(
+      'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+      { maxZoom: 20, subdomains: 'abc',
+        attribution: '&copy; OpenStreetMap contributors, HOT' }
+    );
+    const esriTopo = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 20, attribution: 'Tiles &copy; Esri' }
+    );
+
+    // Collect into a single object for the control
+    const baseMaps = {
+      // --- Minimal & Light ---
+      'Carto Light (Positron)': cartoPositron,
+      'Esri World Gray Canvas': esriGray,
+      'Stamen Toner Lite': stamenTonerLite,
+
+      // --- Medium / Reference ---
+      'OpenStreetMap Standard': osmStandard,
+      'Carto Voyager': cartoVoyager,
+      'Esri World Street Map': esriWorldStreet,
+      'OpenTopoMap': openTopoMap,
+
+      // --- Dark / High Contrast ---
+      'Carto Dark Matter': cartoDarkMatter,
+      'Stamen Toner (Dark B/W)': stamenToner,
+
+      // --- Satellite / Aerial ---
+      'Esri World Imagery': esriWorldImagery,
+      'USGS US Topo': usgsUsTopo,
+
+      // --- Hybrid / Specialty ---
+      'Esri NatGeo World Map': esriNatGeo,
+      'Stamen Watercolor': stamenWatercolor,
+      'OpenStreetMap HOT': osmHOT,
+      'Esri World Topographic': esriTopo
+    };
+
+    // Set default basemap here:
+    esriGray.addTo(map);
+
+    // ============================================================
     // Overlays (Networks & Counties)
-    // ------------------------------
+    // ============================================================
     const networksGroup = L.layerGroup().addTo(map);
     const countiesGroup = L.layerGroup().addTo(map);
 
@@ -144,9 +205,9 @@
       overlayList.prepend(h);
     }
 
-    // ------------------------------
+    // ============================================================
     // Networks (30-color palette, permanent labels, hover/popup, email)
-    // ------------------------------
+    // ============================================================
     const palette30 = [
       '#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
       '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf',
@@ -210,12 +271,12 @@
         networksGeoJson = L.geoJSON(data, {
           style: styleNetworks,
           onEachFeature: (feature, layer) => {
-            // Permanent label
+            // Permanent stacked label (one word per line, "network(s)" removed)
             layer.bindTooltip(multilineName(feature.properties?.name), {
               permanent: true, direction: 'center', className: 'poly-label', opacity: 1
             });
 
-            // Hover card as separate tooltip
+            // Hover card (separate tooltip so the permanent label stays)
             layer.on('mouseover', (e) => {
               highlight(e);
               const tip = L.tooltip({ className: 'hover-tip', direction: 'top', opacity: 0.95, offset: [0,-8] })
@@ -229,7 +290,7 @@
               if (layer._hoverTip) { map.removeLayer(layer._hoverTip); layer._hoverTip = null; }
             });
 
-            // Click popup
+            // Click popup (includes gallery)
             layer.on('click', () => {
               layer.bindPopup(infoCardHtml(feature.properties), { maxWidth: 480 }).openPopup();
             });
@@ -241,9 +302,9 @@
       })
       .catch(err => console.error('Networks load error:', err));
 
-    // ------------------------------
+    // ============================================================
     // Counties (light yellow fill)
-    // ------------------------------
+    // ============================================================
     function styleCounties(){ return { color:'#b59f3b', weight:1, fillColor:'#fff9c4', fillOpacity:0.5 }; }
 
     fetch('https://pastorplt.github.io/tbc_map/tbc_counties.geojson', { cache: 'no-cache' })
