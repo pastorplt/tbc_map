@@ -38,7 +38,7 @@
     .legend-title {
       font-weight: 700; font-size: 14px; margin: 4px 0 8px; color: #111;
     }
-    .legend-list { list-style: none; padding: 0; margin: 0; }
+    .legend-list { list-style: none; padding: 0; margin: 0; position: relative; }
     .legend-item {
       display: flex; align-items: center; gap: 10px;
       padding: 6px 6px; border-radius: 8px;
@@ -52,14 +52,34 @@
     }
     .legend-name { color: #111; }
 
+    /* Legend popup (same visual language as map popups/tooltips) */
+    .legend-popup {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      z-index: 5;
+      background: #fff;
+      color: #111;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.12);
+      padding: 10px 12px 12px;
+    }
+    .legend-popup .close {
+      position: absolute; top: 6px; right: 8px;
+      border: none; background: transparent; font-size: 16px;
+      line-height: 1; cursor: pointer; color: #6b7280;
+    }
+    .legend-popup .close:hover { color: #111; }
+
     .leaflet-interactive { cursor: pointer; }
 
-    /* Tooltips / popups */
+    /* Tooltip / popup content */
     .tip { font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     .tip .label { color:#666; }
     .tip-name { font-size: 15px; font-weight: 600; margin-bottom: 2px; color: #111; }
 
-    /* Permanent polygon labels */
+    /* Permanent polygon labels on map */
     .poly-label {
       background: transparent; border: 0; box-shadow: none;
       color: #1f2937;
@@ -186,8 +206,53 @@
       );
     }
 
-    // Legend state: map of name -> { layer, props, color }
+    // Legend storage
     const legendItems = [];
+    const legendPanel = document.querySelector('.legend-panel');
+    const legendList = document.getElementById('legendList');
+    let legendPopupEl = null; // current popup element
+    let legendPopupForIdx = null; // which item it's anchored to
+
+    function showLegendPopup(idx, html) {
+      // Remove any existing popup
+      if (legendPopupEl) legendPopupEl.remove();
+
+      // Build popup element
+      const el = document.createElement('div');
+      el.className = 'legend-popup';
+      el.innerHTML = '<button class="close" aria-label="Close legend popup">&times;</button>' + html;
+
+      // Insert into panel
+      legendPanel.appendChild(el);
+
+      // Position it just below the target list item
+      const li = legendList.querySelector('li[data-idx="' + idx + '"]');
+      const listRect = legendList.getBoundingClientRect();
+      const liRect = li.getBoundingClientRect();
+
+      const relativeTop = (liRect.top - listRect.top) + legendList.scrollTop + li.offsetHeight + 6;
+      el.style.top = relativeTop + 'px';
+
+      // Close behavior
+      el.querySelector('.close').addEventListener('click', () => { el.remove(); legendPopupEl = null; legendPopupForIdx = null; });
+
+      // Save refs
+      legendPopupEl = el;
+      legendPopupForIdx = idx;
+    }
+
+    // Reposition popup on legend scroll/resize
+    function repositionLegendPopup() {
+      if (!legendPopupEl || legendPopupForIdx == null) return;
+      const li = legendList.querySelector('li[data-idx="' + legendPopupForIdx + '"]');
+      if (!li) return;
+      const listRect = legendList.getBoundingClientRect();
+      const liRect = li.getBoundingClientRect();
+      const relativeTop = (liRect.top - listRect.top) + legendList.scrollTop + li.offsetHeight + 6;
+      legendPopupEl.style.top = relativeTop + 'px';
+    }
+    legendPanel.addEventListener('scroll', repositionLegendPopup);
+    window.addEventListener('resize', repositionLegendPopup);
 
     // --- Load Networks ---
     let networksGeoJson;
@@ -197,12 +262,12 @@
         networksGeoJson = L.geoJSON(data, {
           style: styleNetworks,
           onEachFeature: (feature, layer) => {
-            // Permanent stacked label
+            // Permanent stacked label on map
             layer.bindTooltip(multilineName(feature.properties?.name), {
               permanent: true, direction: 'center', className: 'poly-label', opacity: 1
             });
 
-            // Hover card (map only)
+            // Map hover card (unchanged)
             layer.on('mouseover', (e) => {
               highlight(e);
               const tip = L.tooltip({ className: 'hover-tip', direction: 'top', opacity: 0.95, offset: [0,-8] })
@@ -216,12 +281,12 @@
               if (layer._hoverTip) { map.removeLayer(layer._hoverTip); layer._hoverTip = null; }
             });
 
-            // Click popup (map & legend share this content)
+            // Map click popup (unchanged)
             layer.on('click', () => {
               layer.bindPopup(infoCardHtml(feature.properties), { maxWidth: 480 }).openPopup();
             });
 
-            // Collect for legend (one entry per feature)
+            // Collect for legend
             const displayName = cleanedName(feature.properties?.name || 'Unnamed');
             legendItems.push({
               name: displayName,
@@ -236,7 +301,7 @@
         const b = networksGeoJson.getBounds();
         if (b.isValid()) map.fitBounds(b.pad(0.05));
 
-        // Build the legend list (alphabetical)
+        // Build the legend list
         buildLegend();
       });
 
@@ -244,8 +309,7 @@
     function buildLegend() {
       // Sort by name (A→Z)
       legendItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-      const ul = document.getElementById('legendList');
-      ul.innerHTML = '';
+      legendList.innerHTML = '';
 
       legendItems.forEach((item, idx) => {
         const li = document.createElement('li');
@@ -262,28 +326,12 @@
 
         li.appendChild(swatch);
         li.appendChild(label);
-        ul.appendChild(li);
+        legendList.appendChild(li);
 
-        // Click: zoom to layer + open the same popup used on map click
+        // Click: show tooltip popup anchored to the legend item (no map zoom)
         li.addEventListener('click', () => {
-          const lyr = item.layer;
-          const props = item.props || {};
-          const bounds = lyr.getBounds ? lyr.getBounds() : null;
-          if (bounds && bounds.isValid && bounds.isValid()) {
-            map.fitBounds(bounds.pad(0.05));
-            const center = bounds.getCenter();
-            // Use same HTML as map click
-            const popup = L.popup({ maxWidth: 480 })
-              .setLatLng(center)
-              .setContent(infoCardHtml(props))
-              .openOn(map);
-          } else {
-            // Fallback: just open a popup at current center
-            L.popup({ maxWidth: 480 })
-              .setLatLng(map.getCenter())
-              .setContent(infoCardHtml(props))
-              .openOn(map);
-          }
+          const html = infoCardHtml(item.props);
+          showLegendPopup(idx, html);
         });
       });
     }
