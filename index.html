@@ -46,7 +46,10 @@
       overscroll-behavior: contain;   /* don't bubble to body/map */
       touch-action: pan-y;            /* allow vertical panning */
     }
-    .legend-header { display: false; } /* mobile-only header (enabled in media query) */
+
+    /* IMPORTANT: keep header hidden on desktop */
+    .legend-header { display: none; }  /* ← was 'display: false' before */
+
     .legend-title { font-weight: 700; font-size: 14px; margin: 4px 0 8px; color: #111; }
 
     /* County groups (accordion) */
@@ -123,8 +126,10 @@
       }
       .legend-panel.open { transform: translateX(0); }
 
+      /* Show header & Close button only on mobile */
       .legend-header {
-        display: flex; align-items: center; justify-content: space-between;
+        display: flex;
+        align-items: center; justify-content: space-between;
         gap: 8px; padding: 6px 2px 8px; position: sticky; top: 0;
         background: rgba(255,255,255,0.98); z-index: 2;
       }
@@ -316,7 +321,7 @@
     L.DomEvent.disableScrollPropagation(legendPanel);
     L.DomEvent.disableClickPropagation(legendPanel);
 
-    // Background scroll locking when legend is open (robust on iOS)
+    // Background scroll locking when legend is open (mobile)
     let scrollLockY = 0;
     function lockScroll() {
       scrollLockY = window.scrollY || document.documentElement.scrollTop || 0;
@@ -363,7 +368,7 @@
       if (!legendPopupEl || !legendPopupAnchorEl) return;
       const panelRect = legendPanel.getBoundingClientRect();
       const aRect = legendPopupAnchorEl.getBoundingClientRect();
-      const relativeTop = (aRect.top - panelRect.top) + legendPanel.scrollTop + legendPopupAnchorEl.offsetHeight + 6;
+      const relativeTop = (aRect.top - panelRect.top) + legendPanel.scrollTop + anchorEl.offsetHeight + 6;
       legendPopupEl.style.top = relativeTop + 'px';
     }
     legendPanel.addEventListener('scroll', repositionLegendPopup);
