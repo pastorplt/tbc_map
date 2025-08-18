@@ -90,20 +90,20 @@
        Mobile styles (<768px)
        --------------------------- */
     @media (max-width: 767.98px) {
-      /* Smaller title on mobile */
+      /* Smaller title on mobile (as requested) */
       .map-title {
-        font-size: 22px;      /* was 40px */
+        font-size: 22px;      /* smaller on phones */
         padding: 10px 16px;
         border-radius: 14px;
       }
 
-      /* Bottom sheet (button toggled only; no drag) */
+      /* Bottom sheet (button toggled only; fully hidden when closed) */
       .legend-panel {
         position: fixed; left: 0; right: 0; bottom: 0; top: auto;
         width: auto; max-height: 70vh;
         border-radius: 12px 12px 0 0; padding: 8px 10px 12px;
-        transform: translateY(calc(100% - 44px)); /* closed: show header (~44px) */
-        transition: transform 220ms ease;
+        transform: translateY(100%);       /* fully hidden by default */
+        transition: transform 220ms ease;  /* smooth slide */
         border-left: 0; border-right: 0;
       }
       .legend-panel.open { transform: translateY(0); }
@@ -294,30 +294,27 @@
 
     function isMobile() { return window.matchMedia('(max-width: 767.98px)').matches; }
 
+    // Button-toggled bottom sheet: fully hidden when closed
     function openLegend() {
       legendPanel.classList.add('open');
-      if (isMobile()) legendPanel.style.transform = 'translateY(0)';
       if (legendToggle) legendToggle.setAttribute('aria-expanded', 'true');
     }
     function closeLegend() {
       legendPanel.classList.remove('open');
-      if (isMobile()) legendPanel.style.transform = 'translateY(calc(100% - 44px))';
       if (legendToggle) legendToggle.setAttribute('aria-expanded', 'false');
     }
-    // Init bottom-sheet position on load & resize (mobile only)
+    // Init bottom-sheet position on load & resize
     function initSheetPosition() {
       if (isMobile()) {
-        if (legendPanel.classList.contains('open')) {
-          legendPanel.style.transform = 'translateY(0)';
-        } else {
-          legendPanel.style.transform = 'translateY(calc(100% - 44px))';
-        }
+        // Ensure correct transform based on class
+        // (CSS handles transform via .open)
       } else {
+        // Desktop: clear any inline transforms
         legendPanel.style.transform = '';
       }
     }
     window.addEventListener('resize', initSheetPosition);
-    initSheetPosition();
+    initSheetPosition(); // start closed (fully hidden on mobile)
 
     // Button toggles
     if (legendToggle) legendToggle.addEventListener('click', () => {
