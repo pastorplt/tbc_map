@@ -32,7 +32,7 @@
       position: absolute;
       top: 70px; left: 10px;
       width: 300px; max-height: calc(100% - 90px);
-      overflow: auto;
+      overflow-y: auto;
       z-index: 1000;
       background: rgba(255,255,255,0.95);
       border: 1px solid #e5e7eb;
@@ -41,9 +41,10 @@
       padding: 10px;
       font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 
-      /* Scrolling quality on touch */
+      /* Improve touch scrolling */
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
+      touch-action: pan-y;
     }
     .legend-header { display: none; } /* mobile-only header */
     .legend-title { font-weight: 700; font-size: 14px; margin: 4px 0 8px; color: #111; }
@@ -118,6 +119,7 @@
         background: rgba(255,255,255,0.98);
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain; /* prevent scroll chaining */
+        touch-action: pan-y;          /* allow vertical scroll */
       }
       .legend-panel.open { transform: translateX(0); }
 
@@ -140,7 +142,7 @@
       /* Hide desktop duplicate title */
       .desktop-only { display: none; }
 
-      /* Mobile FAB to open/close — now bottom-left */
+      /* Mobile FAB to open/close — bottom-left */
       .legend-toggle {
         display: inline-flex; align-items: center; justify-content: center;
         position: fixed; left: 12px; bottom: 12px; z-index: 1001;
@@ -149,6 +151,9 @@
         box-shadow: 0 6px 18px rgba(0,0,0,.2);
       }
       .legend-toggle:active { transform: translateY(1px); }
+
+      /* Hide Leaflet +/- zoom on mobile */
+      .leaflet-control-zoom { display: none !important; }
     }
 
     /* Shared popup content */
@@ -307,24 +312,39 @@
 
     function isMobile() { return window.matchMedia('(max-width: 767.98px)').matches; }
 
+    // Background scroll locking when legend is open (robust on iOS)
+    let scrollLockY = 0;
+    function lockScroll() {
+      scrollLockY = window.scrollY || document.documentElement.scrollTop || 0;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollLockY}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    }
+    function unlockScroll() {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      window.scrollTo(0, scrollLockY);
+    }
+
     // Button-toggled side sheet: fully hidden when closed
     function openLegend() {
       legendPanel.classList.add('open');
       if (legendToggle) legendToggle.setAttribute('aria-expanded', 'true');
-      if (isMobile()) {
-        // Lock background scroll while open
-        document.documentElement.style.overflow = 'hidden';
-        document.body.style.overflow = 'hidden';
-      }
+      if (isMobile()) lockScroll();
     }
     function closeLegend() {
       legendPanel.classList.remove('open');
       if (legendToggle) legendToggle.setAttribute('aria-expanded', 'false');
-      if (isMobile()) {
-        // Restore page scroll
-        document.documentElement.style.overflow = '';
-        document.body.style.overflow = '';
-      }
+      if (isMobile()) unlockScroll();
     }
 
     // Button toggles
@@ -336,8 +356,8 @@
 
     // Ensure legend panel scrolls independently on mobile
     legendPanel.addEventListener('touchmove', (e) => {
-      // Allow scrolling inside the legend; background is locked by overflow hidden.
-      // No preventDefault here so the panel itself scrolls.
+      // Allow scrolling inside the legend; background is locked by lockScroll().
+      // No preventDefault so the panel itself scrolls.
     }, { passive: true });
 
     // Reposition legend popup (used both desktop and mobile)
@@ -455,7 +475,7 @@
 
         const details = document.createElement('details');
         details.className = 'county-group';
-        // Open with ALL counties collapsed on load (no default open)
+        // Start with ALL counties collapsed (do not set details.open = true)
 
         const summary = document.createElement('summary');
         const nameEl = document.createElement('span'); nameEl.className = 'county-name'; nameEl.textContent = county;
