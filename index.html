@@ -32,7 +32,7 @@
       position: absolute;
       top: 70px; left: 10px;
       width: 300px; max-height: calc(100% - 90px);
-      overflow-y: auto;
+      overflow-y: auto;               /* ensure scrolling */
       z-index: 1000;
       background: rgba(255,255,255,0.95);
       border: 1px solid #e5e7eb;
@@ -41,12 +41,12 @@
       padding: 10px;
       font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 
-      /* Improve touch scrolling */
+      /* Improve scroll behavior across devices */
       -webkit-overflow-scrolling: touch;
-      overscroll-behavior: contain;
-      touch-action: pan-y;
+      overscroll-behavior: contain;   /* don't bubble to body/map */
+      touch-action: pan-y;            /* allow vertical panning */
     }
-    .legend-header { display: none; } /* mobile-only header */
+    .legend-header { display: false; } /* mobile-only header (enabled in media query) */
     .legend-title { font-weight: 700; font-size: 14px; margin: 4px 0 8px; color: #111; }
 
     /* County groups (accordion) */
@@ -312,6 +312,10 @@
 
     function isMobile() { return window.matchMedia('(max-width: 767.98px)').matches; }
 
+    // Stop map from stealing legend scroll/click (critical fix)
+    L.DomEvent.disableScrollPropagation(legendPanel);
+    L.DomEvent.disableClickPropagation(legendPanel);
+
     // Background scroll locking when legend is open (robust on iOS)
     let scrollLockY = 0;
     function lockScroll() {
@@ -353,12 +357,6 @@
       isOpen ? closeLegend() : openLegend();
     });
     if (legendClose) legendClose.addEventListener('click', closeLegend);
-
-    // Ensure legend panel scrolls independently on mobile
-    legendPanel.addEventListener('touchmove', (e) => {
-      // Allow scrolling inside the legend; background is locked by lockScroll().
-      // No preventDefault so the panel itself scrolls.
-    }, { passive: true });
 
     // Reposition legend popup (used both desktop and mobile)
     function repositionLegendPopup() {
@@ -475,7 +473,7 @@
 
         const details = document.createElement('details');
         details.className = 'county-group';
-        // Start with ALL counties collapsed (do not set details.open = true)
+        // Start with ALL counties collapsed
 
         const summary = document.createElement('summary');
         const nameEl = document.createElement('span'); nameEl.className = 'county-name'; nameEl.textContent = county;
