@@ -1,110 +1,78 @@
-<!-- navbar.html -->
+<nav class="nav">
+  <div class="brand">
+    <a href="index.html" aria-label="TBC Home">
+      <span class="logo-wrap">
+        <img src="TBC_full_logo.gif" alt="TBC logo">
+      </span>
+    </a>
+  </div>
+  <ul class="nav-links">
+    <li><a href="network_map.html">Map</a></li>
+    <li><a href="touchpoint.html">Touchpoint</a></li>
+    <li class="dropdown">
+      <a href="#">View ▾</a>
+      <ul class="dropdown-content">
+        <li><a href="organizations.html">Organizations</a></li>
+        <li><a href="leaders.html">Leaders</a></li>
+        <li><a href="networks.html">Networks</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+
 <style>
-  /* ===== Nav Base ===== */
-  :root { --brand: #bf3426; }
-  header.navbar {
-    background: var(--brand);
-    color: #fff;
-    height: 60px;
-  }
   .nav {
-    height: 60px; display: flex; align-items: center; gap: 16px;
-    padding: 0 16px; max-width: 1100px; margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #bf3426;
+    padding: 8px 16px;
     font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   }
-  .brand {
-    display: flex; align-items: center; gap: 10px; text-decoration: none;
-    color: #fff; font-weight: 800; letter-spacing: .3px;
+  .nav .brand img {
+    height: 36px;
+    display: block;
   }
-  .brand .logo-wrap {
-    background:#000; padding:4px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+  .logo-wrap {
+    background: #000;
+    padding: 4px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
-  .brand img { height:36px; width:auto; display:block; }
-  .brand span { white-space: nowrap; }
-
-  .nav-links { display:flex; align-items:center; gap: 18px; margin-left:auto; position:relative; }
-  .nav-links a, .nav-links button {
-    color:#fff; text-decoration:none; font-weight:700; padding:6px 4px; border-radius:4px; opacity:.95;
-    background:none; border:0; cursor:pointer; font: inherit;
+  .nav-links {
+    list-style: none;
+    display: flex;
+    margin: 0;
+    padding: 0;
   }
-  .nav-links a:hover, .nav-links button:hover { text-decoration: underline; opacity:1; }
-  .nav-links a.active { text-decoration: underline; opacity:1; }
-
-  /* Dropdown */
-  .dropdown { position:relative; }
-  .dropdown[aria-expanded="true"] .menu { display:block; }
-  .menu {
-    display:none; position:absolute; top: 100%; left: 0; min-width: 180px;
-    background:#fff; color:#111; border:1px solid #e5e7eb; border-radius:8px; padding:6px;
-    box-shadow: 0 6px 18px rgba(0,0,0,.15); z-index: 1000;
+  .nav-links li {
+    position: relative;
   }
-  .menu a {
-    display:block; padding:8px 10px; border-radius:6px; color:#111; text-decoration:none; font-weight:600;
+  .nav-links a {
+    color: #fff;
+    text-decoration: none;
+    padding: 8px 12px;
+    display: block;
   }
-  .menu a:hover { background:#f3f4f6; }
-
-  /* Small screens */
-  @media (max-width: 560px){
-    .brand span { display:none; } /* hide text, keep logo */
+  .nav-links a:hover {
+    background: #a22a1f;
+    border-radius: 4px;
+  }
+  .dropdown-content {
+    display: none;
+    position: absolute;
+    background: #bf3426;
+    top: 100%;
+    left: 0;
+    min-width: 160px;
+    z-index: 1000;
+  }
+  .dropdown-content li a {
+    padding: 8px 12px;
+  }
+  .dropdown:hover .dropdown-content {
+    display: block;
   }
 </style>
-
-<header class="navbar">
-  <div class="nav" role="navigation" aria-label="Primary">
-    <a class="brand" href="index.html" aria-label="Home">
-      <span class="logo-wrap"><img src="TBC_full_logo.gif" alt="TBC logo"></span>
-      <span>TBC City</span>
-    </a>
-
-    <nav class="nav-links">
-      <a data-match="index.html" href="index.html">Home</a>
-      <a data-match="network_map.html" href="network_map.html">Map</a>
-
-      <div class="dropdown" id="viewDropdown">
-        <button type="button" aria-haspopup="true" aria-expanded="false">View ▾</button>
-        <div class="menu" role="menu" aria-label="View submenu">
-          <a data-match="organizations.html" href="organizations.html" role="menuitem">Organizations</a>
-          <a data-match="leaders.html" href="leaders.html" role="menuitem">Leaders</a>
-          <a data-match="networks.html" href="networks.html" role="menuitem">Networks</a>
-        </div>
-      </div>
-
-      <a data-match="touchpoint.html" href="touchpoint.html">Touchpoint</a>
-    </nav>
-  </div>
-</header>
-
-<script>
-  // Dropdown toggle
-  (function(){
-    const dd = document.getElementById('viewDropdown');
-    if (!dd) return;
-    const btn = dd.querySelector('button');
-    const menu = dd.querySelector('.menu');
-
-    function close(){ dd.setAttribute('aria-expanded','false'); }
-    function open(){ dd.setAttribute('aria-expanded','true'); }
-
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const expanded = dd.getAttribute('aria-expanded') === 'true';
-      expanded ? close() : open();
-    });
-    document.addEventListener('click', (e) => {
-      if (!dd.contains(e.target)) close();
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') close();
-    });
-  })();
-
-  // Active link highlight (based on current file name)
-  (function(){
-    let file = location.pathname.split('/').pop() || 'index.html';
-    // Handle project path/root
-    if (!file.includes('.')) file = 'index.html';
-    document.querySelectorAll('[data-match]').forEach(a => {
-      if (a.getAttribute('data-match') === file) a.classList.add('active');
-    });
-  })();
-</script>
