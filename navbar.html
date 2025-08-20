@@ -62,8 +62,15 @@
   /* Dropdown: align to right so it never clips */
   .dropdown .dropdown-content {
     display: none; position: absolute; top: 100%; right: 0; left: auto;
-    background: var(--brand); min-width: 180px; padding: 6px 4px; margin-top: 2px;
+    background: var(--brand); min-width: 180px; margin-top: 2px;
     border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.15); z-index: 1000;
+    padding: 6px 4px;
+
+    /* 🔥 bullet fix */
+    list-style: none;
+  }
+  .dropdown .dropdown-content li {
+    list-style: none; margin: 0; padding: 0;
   }
   .dropdown.open .dropdown-content { display: block; }
   .dropdown-content a { border-radius: 6px; }
@@ -115,7 +122,7 @@
       const isOpen = menu.classList.contains('open'); isOpen ? closeMenu() : openMenu();
     });
 
-    // Dropdown toggle (works for desktop & mobile)
+    // Dropdown toggle
     function closeDropdown(){ dropdown.classList.remove('open'); toggle.setAttribute('aria-expanded','false'); }
     function openDropdown(){ dropdown.classList.add('open'); toggle.setAttribute('aria-expanded','true'); }
     toggle.addEventListener('click', function(e){
@@ -133,12 +140,12 @@
       if (e.key === 'Escape') { closeDropdown(); closeMenu(); }
     });
 
-    // If resizing from mobile->desktop, ensure menu is visible state is reset
+    // Reset when resizing
     let lastWide = window.innerWidth > 720;
     window.addEventListener('resize', function(){
       const wide = window.innerWidth > 720;
       if (wide !== lastWide) {
-        closeMenu(); // collapse mobile sheet when crossing breakpoint
+        closeMenu();
         closeDropdown();
         lastWide = wide;
       }
