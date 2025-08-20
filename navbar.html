@@ -1,78 +1,106 @@
-<nav class="nav">
-  <div class="brand">
-    <a href="index.html" aria-label="TBC Home">
+<!-- navbar.html -->
+<header class="navbar">
+  <div class="nav">
+    <a href="index.html" aria-label="TBC Home" class="brand">
       <span class="logo-wrap">
         <img src="TBC_full_logo.gif" alt="TBC logo">
       </span>
     </a>
+
+    <ul class="nav-links">
+      <li><a href="network_map.html">Map</a></li>
+      <li><a href="touchpoint.html">Touchpoint</a></li>
+      <li class="dropdown">
+        <a href="#" class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">View ▾</a>
+        <ul class="dropdown-content" role="menu" aria-label="View submenu">
+          <li><a href="organizations.html" role="menuitem">Organizations</a></li>
+          <li><a href="leaders.html" role="menuitem">Leaders</a></li>
+          <li><a href="networks.html" role="menuitem">Networks</a></li>
+        </ul>
+      </li>
+    </ul>
   </div>
-  <ul class="nav-links">
-    <li><a href="network_map.html">Map</a></li>
-    <li><a href="touchpoint.html">Touchpoint</a></li>
-    <li class="dropdown">
-      <a href="#">View ▾</a>
-      <ul class="dropdown-content">
-        <li><a href="organizations.html">Organizations</a></li>
-        <li><a href="leaders.html">Leaders</a></li>
-        <li><a href="networks.html">Networks</a></li>
-      </ul>
-    </li>
-  </ul>
-</nav>
+</header>
 
 <style>
+  :root { --brand: #bf3426; --brand-darker: #a22a1f; }
+  /* Full-width colored bar */
+  .navbar {
+    background: var(--brand);
+    width: 100%;
+  }
+
+  /* Centered content row */
   .nav {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #bf3426;
+    gap: 16px;
     padding: 8px 16px;
+    max-width: 1200px;   /* adjust if you want wider/narrower content */
+    margin: 0 auto;
     font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   }
-  .nav .brand img {
-    height: 36px;
-    display: block;
-  }
+
+  /* Logo with black badge */
+  .brand { display: inline-flex; align-items: center; text-decoration: none; }
   .logo-wrap {
-    background: #000;
-    padding: 4px;
-    border-radius: 6px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    background: #000; padding: 4px; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
   }
+  .brand img { height: 36px; width: auto; display: block; }
+
+  /* Links */
   .nav-links {
-    list-style: none;
-    display: flex;
-    margin: 0;
-    padding: 0;
+    list-style: none; display: flex; align-items: center; gap: 6px;
+    margin: 0; padding: 0;
   }
-  .nav-links li {
-    position: relative;
-  }
+  .nav-links > li { position: relative; }
   .nav-links a {
-    color: #fff;
-    text-decoration: none;
-    padding: 8px 12px;
+    color: #fff; text-decoration: none; font-weight: 700;
+    padding: 8px 12px; border-radius: 4px; display: block; opacity: .95;
+  }
+  .nav-links a:hover { background: var(--brand-darker); opacity: 1; }
+  .nav-links a.active { background: var(--brand-darker); opacity: 1; }
+
+  /* Dropdown */
+  .dropdown .dropdown-content {
+    display: none; position: absolute; top: 100%; left: 0;
+    background: var(--brand); min-width: 180px; padding: 6px 4px; margin-top: 2px;
+    border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.15); z-index: 1000;
+  }
+  .dropdown:hover .dropdown-content,
+  .dropdown[aria-expanded="true"] .dropdown-content {
     display: block;
   }
-  .nav-links a:hover {
-    background: #a22a1f;
-    border-radius: 4px;
-  }
-  .dropdown-content {
-    display: none;
-    position: absolute;
-    background: #bf3426;
-    top: 100%;
-    left: 0;
-    min-width: 160px;
-    z-index: 1000;
-  }
-  .dropdown-content li a {
-    padding: 8px 12px;
-  }
-  .dropdown:hover .dropdown-content {
-    display: block;
+  .dropdown-content a { border-radius: 6px; }
+
+  /* Small screens: hide wordmark if you ever add one later */
+  @media (max-width: 560px) {
+    .nav { padding: 8px 10px; }
   }
 </style>
+
+<script>
+  // (Optional) keyboard-friendly dropdown toggle
+  (function(){
+    const dd = document.querySelector('.dropdown');
+    const toggle = dd?.querySelector('.dropdown-toggle');
+    if (!dd || !toggle) return;
+
+    function open(){ dd.setAttribute('aria-expanded','true'); }
+    function close(){ dd.setAttribute('aria-expanded','false'); }
+
+    toggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      const isOpen = dd.getAttribute('aria-expanded') === 'true';
+      isOpen ? close() : open();
+    });
+    document.addEventListener('click', (e) => {
+      if (!dd.contains(e.target)) close();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') close();
+    });
+  })();
+</script>
